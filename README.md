@@ -32,6 +32,13 @@ Copying data from the internal drive to an external USB drive named "Backup":
 
      carbon -u /Volumes/Macintosh\ HD/ /Volumes/Backup/
 
+Help statement can be accessed by typing:
+
+     carbon -h
+
+Carbon also has a man page (though admittedly I have not kept up with it as much).
+   
+     man carbon
 
 
 Files
