@@ -1,0 +1,84 @@
+.\" Manpage for carbon.
+.\" Contact hkrewson@apple.com to correct errors
+.\"
+.\"To preview: /usr/bin/nroff -msafer -mandoc carbon.7 | less
+.\"To check for errors: /usr/bin/groff -I/usr/share/man -S -Wall -mtty-char -mandoc -Tascii carbon.7 > /dev/null 
+
+.Dd May 17, 2012
+.Dt carbon 7
+.Os "Mac OS X"
+.Sh NAME
+.Nm carbon
+.Nd bash shell script to perform a copy of data using the command 
+.Xr ditto 1 
+and provide additional information.
+
+.Sh SYNOPSIS
+.Nm
+.Op Fl u48tevhd
+.Op <options>
+.Ar src dst_directory
+
+
+.Sh DESCRIPTION
+In this release, 
+.Nm 
+uses 
+.Xr ditto 1 
+to copy a directory to a destination (ideally on an external drive). As in 
+.Xr ditto 1 ,
+if the destination directory does not exist, it will be created before the first source file is copied. If the destination directory already exists, then the source directories are merged with the previous contents of the destination. Again, this behavior is consistent with the behavior of 
+.Xr ditto 1 .
+For more information, please see the man pages for 
+.Xr ditto 1 .
+.Pp   
+.Nm
+also looks at the source and destination in order to provide feedback on the progress of the copy of data. In order for this command to provide this feedback, it requires one or more options be used to let it know what port is being used. This information 
+.Fl -u48te 
+allows the command to determine a rough ETA based on the amount of data to copy, and a running ETA based on the amount of data remaining to copy. 
+.Pp    
+.Nm 
+does all of this by running several commands in a loop after first setting 
+.Xr ditto 1 
+to run in the background. This loop refreshes once every 10 seconds, and runs commands to determine the amount of data remaining to be copied and output this in a simple format for the technician to read. 
+
+.Sh OPTIONS
+.Bl -tag -width "XXXkeepParent"
+.It Fl h
+Print full usage.
+
+.It Fl u
+Tells carbon that you are copying data over USB.
+
+.It Fl 4
+Tells carbon that you are copying data over FireWire 400.
+
+.It Fl 8
+Tells carbon that you are copying data over FireWire 800.
+
+.It Fl t
+Tells carbon that you are copying data over Thunderbolt.
+
+.It Fl e
+Tells carbon that you are copying data over Ethernet.
+
+.It Fl d      
+Tells carbon that you wish to copy data to a disk image file. Useful for copying to a Time Capsule, or a drive that already contains data.
+
+.It Fl v
+Prints out the version of carbon.
+                
+.Sh EXAMPLES
+The command:
+.Dl carbon -ur 25 src_directory dst_directory
+copies the contents of src_directory into dst_directory, and provides feedback refreshed every 25 seconds.
+
+.Sh BUGS
+No known bugs in carbon.
+
+.Pp
+If data exists in the same location, or you ctl-c exit out of the script, a zero-k unix file labled 0 or some other number may be created in the directory carbon is running from. This file will cause an issue in which all reported sizes and times are 0 or null. Deleting this file will resolve the issue.
+
+.Sh SEE ALSO
+.Xr ditto 1
+
