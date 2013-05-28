@@ -1,0 +1,81 @@
+
+Changelog
+---------
+(Log is also included in carbon.sh)
+#  carbon
+# v20130521a
+# - Alternate version with a while loop using tput cup to position the cursor instead of 
+#     clearing the screen.
+#  v20121027a (10.8 Fork)
+#	- Testing begins for using with Mountain Lion.
+#	- Added mountain lion to list of supported OS versions to begin to allow testing.
+#	- Passed myLOGGER "$0 $- $@" to add the full command into the logs.
+#	- Added a printed output to request all logs and a description of any success or failure.
+#	v20120531
+#	- $SOURCELIST was breaking when filenames contained spaces. Added temporary storage for IFS, 
+#		and switched IFS=$(echo -en "\n\b"). This should allow for spaces in names. 
+#	v20120527
+#	- Changed disk image creation from type SPARSE to SPARSEBUNDLE to allow for creation on
+#		fat32 formatted drives.
+#	v20120516
+#	- Resumed use of runtime () to calculate scriptRUNTIME. This combined with the
+#		use of an array with ditto provides proper while looping feedback.
+#		Prior to this, script was backgrounding multiple instances of ditto and exiting
+#		before all data was copied.
+#	- Added a new log file for ditto background process. $clog=carbon.copy.log
+#	- Changed myTARGET test. If function is unable to create the directory, an error
+#		is reported that the drive is read-only.
+#	- Function isCOMPLETE generated an error in the calculation to determine if the copy
+#		is complete or not. percentCOMPLETE was scaled to a precision of 2, causing the if
+#		statement to always show that the copy exited early. Changed scale of precision to 0.
+#		This resolves the error since bc is required for any float calculations. if is
+#		changed to look for -ge 99 instead of -gt 99.
+#	- Realized that in a prior revision, I removed refresh. This also removed allocation of
+#		$source and $target. Added this back in just after running checkDIR.
+#	- dittoERROR has been added into the final report just after isCOMPLETE. This should 
+#		report any error messages.
+#   v20120506
+#   - Removed refresh rate options as they are never used.
+#   - Created mySCALE function for code reuse.
+#   - Removed older entries from embeded changelog.
+#   v20120505
+#   - Added -t option to myLOGGER calls. Allows message to be displayed on screen and 
+#       saved to a log file.
+#   v20120425
+#   - Trying to redirect stdout/err to function myERROR.
+#	v20120424
+#	- In last testing, refresh rate of 30 seconds seemed to be too long. With the new for
+#		loop, we are waiting on the information loop to transferring new files. Ditto
+#		no longer has a constant stream of data. Changed default refresh to 10 seconds, 
+#		may also try 5.
+#	- Changed the test on the while loop to [ -n $i ], so that we are testing to see if 
+#		$i contains data. This may work or may break use of ditto, as it possibly could
+#		fail to pass back to the parent for loop.
+#	- Since the while loop no longer tests runtime, we are commenting out. Runtime and 
+#		all calls to it will be removed in future versions.
+#	- Verified that $SECONDS can be passed to myTime function and provide proper results.
+#	v20120421a
+#	- Remove ;;s from line 719 wich was causing the script to error.
+#	- Resolved array usage with ditto.
+#	- Resolved array stepping with for loop.
+#	- Elapsed time is now based on bash default variable $SECONDS
+#
+#	- TODO: Still need a valid method for the while loop (runtime of ditto is no longer good)
+#			Need an adjusted method of reporting time elapsed.
+#			Need to ensure the disk image function properly resets the target.
+#			myLOGGER may not be functioning in the loops.
+#	v20120415a
+#	- Removed needlessly duplicated code in the section following getopts.
+#	- New functions. 
+#	- myLOGGER provides a method for appending log messages to a log file, splitting between
+#		the regular log file and the error log file.
+#	- Reattempting to split output of ditto to two log files.
+#	V20120403A
+#	- Completed first version of for loop management for Volumes folder. Folder should be
+#		skipped during data transfer.
+#	- Cleanup
+#	- New code for reporting location should be simpler and hopefully faster as well as
+#		actually work. Fingers crossed.
+#	v20120402a
+#	- Adding a for loop around the while loop to get rid of the Volumes folder deletion.
+#	v20120324a
