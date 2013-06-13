@@ -3,6 +3,8 @@
 #
 #
 #	carbon
+#	v20130613
+#	- corrected the name of the log files
 #   v20130521a
 #   - While loop using tput cup to position the cursor instead of clearing the screen.
 #	v20121027a (10.8 Fork)
@@ -112,7 +114,7 @@
 ##### HEADER ENDS #####
 
 ###################################### GLOBAL VARIABLES ######################################
-version="20130527b"                                             
+version="20130613b"                                             
 width=$(tput cols)                                             #Determine width of window
 refresh=10                                                     #Set default refresh
 copiedRAW=0                                                    #Set the initial amount of data copied
@@ -568,6 +570,6 @@ echo "Transfer of data is completed."				# Script has completed.
 ######################################### END FINAL REPORT #########################################
 
 ########################################### FILE CLEANUP ###########################################
-mv $log /Library/Logs/voodoo.$today.log
+mv $log /Library/Logs/carbon.$today.log
 exit												# Script exits. Have a nice day.
 ############################################ END SCRIPT ############################################
