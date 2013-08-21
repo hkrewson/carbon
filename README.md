@@ -80,3 +80,7 @@ If you don't include a connection type flag in your call to carbon, it will erro
 
 currently outputs a verbose log that can be read to determine the cause of any troubles.
 
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/hkrewson/carbon/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
