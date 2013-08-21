@@ -25,7 +25,7 @@ folder or drive, and the destination.
 
 Connection types known to carbon include: u (USB), 4 (FW400), 8 (FW800), e (Ethernet), t (Thunderbolt). Carbon 
 uses this and some data derived from real world data transfer tests to determine a rough estimated time of 
-completion. Since my original use scenario was to copy data from corrupted drives/folders, these time estimates 
+completion. Since my original use scenario was to copy data from corrupted drives/folders, these time estimates are
 longer than would be expected from a drive in good health.
 
 Copying data from the internal drive to an external USB drive named "Backup":
