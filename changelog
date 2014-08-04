@@ -2,6 +2,7 @@
 Changelog
 ---------
 (Log is also included in carbon.sh)
+# - Add in a routine to keep track of transfer rates and times.
 #  carbon
 # v20130521a
 # - Alternate version with a while loop using tput cup to position the cursor instead of 

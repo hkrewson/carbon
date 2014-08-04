@@ -3,6 +3,11 @@
 #
 #
 #	carbon
+#   v20140312
+#   - Removed option to clear messages database. Issue was resolved in 10.8.3 update by Apple.
+#   - Update: additional logging for OS version verification steps.
+#   - Update: added Mavericks to supported OS. Still needs testing to verify, but everything
+#       should work without issue.
 #	v20130613
 #	- corrected the name of the log files
 #   v20130521a
@@ -111,15 +116,20 @@
 #		TB  transfer of 9GB took approx 1:33 m (1GB per 10.3s, 96MB/s, .01041666667s/MB)
 #			Corrupted transfer estimate is 3* or 1GB per 30.9s, 32.36MB/s, .03090234858s/MB
 #
+################################ use of tput cup ##########################################
+#       tput cup 0 0
+#            Send the sequence to move the cursor to row 0, column 0 (the upper
+#            left  corner  of  the  screen,  usually known as the "home" cursor
+#            position).
 ##### HEADER ENDS #####
 
 ###################################### GLOBAL VARIABLES ######################################
-version="20130613b"                                             
+version="20140312b"                                             
 width=$(tput cols)                                             #Determine width of window
 refresh=10                                                     #Set default refresh
 copiedRAW=0                                                    #Set the initial amount of data copied
 debugON=0
-sysREQ=(5 6 7 8)
+sysREQ=(5 6 7 8 9)
 SYSTEM=$(sw_vers -productVersion | awk -F. '{print $2}')
 copiedTEMP=0
 log=~/Library/Logs/carbon.current.log
@@ -341,18 +351,19 @@ mySYSCHECK ()
 		6) SYSTEM="Snow Leopard";;
 		7) SYSTEM=Lion;;
 		8) SYSTEM="Mountain Lion";;
+		9) SYSTEM=Mavericks;;
 	esac
 	myLOGGER "Currently running on MacOS X $(sw_vers -productVersion) $SYSTEM"
 	}
 
 myVERSREQ ()
 	{
-	if [[ "$sysCUR" != "${sysREQ[0]}" ]] && [[ "$sysCUR" != "${sysREQ[1]}" ]] && [[ "$sysCUR" != "${sysREQ[2]}" ]] && [[ "$sysCUR" != "${sysREQ[3]}" ]]; then
-		echo "This script requires 10.6 or newer"
-		echo "Current system is 10."$sysCUR
+	if [[ "$sysCUR" != "${sysREQ[0]}" ]] && [[ "$sysCUR" != "${sysREQ[1]}" ]] && [[ "$sysCUR" != "${sysREQ[2]}" ]] && [[ "$sysCUR" != "${sysREQ[3]}" ]] && [[ "$sysCUR" != "${sysREQ[4]}" ]]; then
+		myLOGGER -t "This script requires 10.6 or newer"
+		myLOGGER -t "Current system is 10."$sysCUR
 		exit
 	else
-		echo ""
+		myLOGGER "Supported OS."
 	fi
 
 	}
@@ -395,14 +406,6 @@ runtime ()
     scriptRUNTIME=$(ps -ceo uid,pid,etime | grep $! | awk '{print $3}')
     }
 
-clearMESSAGES ()
-    {
-    #Make a backup of the chat database file just in case
-    cp ~/Library/Messages/chat.db ~/Library/Messages/chat.db.backup
-    
-    #Use sed to delete the offending text. The paired double quotes tell the -i option that there is no file extension.
-    sed -i "" '/File\:\/\/\//d' ~/Library/Messages/chat.db
-    }
 ##################################################################################################
 touch "$log"                                  				#Create a log file if it does not exist
 touch "$elog"						   									
@@ -418,9 +421,9 @@ echo $source $target
 ## Base use of getopts: while getopts "OPTSTRING" VARNAME;
 ## Check for no opts: if ( ! getopts "OPTSTRING" VARNAME ); Placed just prior to while getopts call
 # Check for valid -options being set. If no -options are specified, return usage to the user.
-if ( ! getopts "u48tevhmdc" opt); then
+if ( ! getopts "u48tevhmd" opt); then
     myLOGGER "getopts error: no flags used. Printing usage message."
-    myLOGGER -t "Usage: `basename $0` options (-u48temdc) (-v version) -h for help"
+    myLOGGER -t "Usage: `basename $0` options (-u48temd) (-v version) -h for help"
     exit;
 fi
 
@@ -440,7 +443,6 @@ while getopts "u48tevhasmd" opt; do
 		h)	myHelp | less; exit;;	
 		m)  mount -uw /; mySYSCHECK; myUSERNAME; mySETUP;;
 		d)  mydmg=1;;
-                c)  clearMESSAGES;;
 	esac
 done
 
@@ -477,6 +479,20 @@ IFS=$IFSTMP
 #		
 #		Error report.
 #		XX errors have occured.
+#
+#Time		% Complete		Copied	Remaining	Transfer Rate/Expected
+#-----------------------------------------------------------------------------------------------------------------
+#
+#
+#-----------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------
+#
+#ETA Original		ETA Current		Elapsed	Current Folder	Current File
+#-----------------------------------------------------------------------------------------------------------------
+#
+#
+#-----------------------------------------------------------------------------------------------------------------
+#
 ####################################################################################################
 for i in "${SOURCELIST[@]}"
 	do

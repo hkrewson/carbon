@@ -3,6 +3,8 @@
 .\"
 .\"To preview: /usr/bin/nroff -msafer -mandoc carbon.7 | less
 .\"To check for errors: /usr/bin/groff -I/usr/share/man -S -Wall -mtty-char -mandoc -Tascii carbon.7 > /dev/null 
+.\"
+.\"Update:  synopsis to appropriately repqresent command options.
 
 .Dd May 17, 2012
 .Dt carbon 7
@@ -15,9 +17,19 @@ and provide additional information.
 
 .Sh SYNOPSIS
 .Nm
-.Op Fl u48tevhd
-.Op <options>
+.Op Fl h
+.Nm
+.Op Fl v
+.Nm
+.Op Fl u [ d ] 
+.Op Fl 4 [ d ]
+.Op Fl 8 [ d ]
+.Op Fl t [ d ]
 .Ar src dst_directory
+.Nm 
+.Op Fl e [ d ]
+.Ar src dst_directory
+
 
 
 .Sh DESCRIPTION
