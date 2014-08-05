@@ -3,8 +3,10 @@
 #
 #
 #	carbon
+#   v20140805
+#   - New calculation for space used. 
 #   v20140312
-#   - Removed option to clear messages database. Issue was resolved in 10.8.3 update by Apple.
+#   - Removed option to clear messages database. Issue was resolved in 10.8.3 update.
 #   - Update: additional logging for OS version verification steps.
 #   - Update: added Mavericks to supported OS. Still needs testing to verify, but everything
 #       should work without issue.
@@ -89,6 +91,184 @@
 #	- Renaming script. Why? Because I want to. Also because carbon can autocomplete with a tab.
 #	- Also reexamining versioning.
 #
+#   Script renamed. Some functionality has been removed to reduce bloat and because it was 
+#   rarely used to the point that if we needed to do so, it was just as easy to look it up.
+#   New name more accurately reflects original and current intent.
+#	v1.7.3b
+#	- Changes to determine whether all data was copied or not. Added two new functions
+#		to facilitate this process. myERRORCOUNT and myFILECOUNT
+#	v1.7.2b
+#	- Further refinement of error reporting and logging. 
+#	- Simplified log filename to plus.current.log.
+#	- Fixed error report if statements.
+#	- Change in reporting of last file copied. Currently should echo the full path of file.
+#	v1.7.1b
+#	- Made error scanning a function and added a call to the end of the script to report
+#		what may have caused ditto to exit.
+#	- Adding to the error reporting for ditto to make it more robust.
+#	v1.7b
+#	- Added a new section to the loop to display transfer rate speeds. 
+#	- Added a new calculation to the after loop display to provide the average 
+#		transfer rate.
+#	v1.6.5
+#	- Altered the runtime test to be -n instead of -ge. Test should now properly show 
+#		time elapsed based on output from ps.
+#   v1.6.4
+#   - Modified $total_time to not divide by 60. This was throwing off time calculations 
+#       for the total time involved.
+#   - Modified while loop call to runtime(). Loop will now print runtime in separated 
+#       hours, minutes and seconds instead of colon seperated.
+#   - Realized the new runtime call would fail to execute properly if seconds contained 
+#       a 0. Altered the call to be -ge.
+#   v1.6.3
+#   - Modified myTime to account for hours as well as minutes and seconds
+#   - Added hours to output in order to make it easier to understand times.
+#	- Updated the manual to remove two flags no longer used (-k, -x)
+#	v1.6.2
+#	- Call to myHelp from getopts was broken at some point in the past. Fixed this.
+#	v1.6.1
+#	- Changed the way it saves the log file from ditto. plus$start_time.log
+#	- Working on modification of time reporting.
+#	- Working on modification of data reporting for ditto progress and location.
+#	v1.6.0
+#	- Added new code to check the version of the current OS and verify compatibility before 
+#		continuing.
+#	- Code modifications to remove existing pluslog files prior to creating a new file.
+#	- Code modification to better reflect transfer speeds of failing or corrupted drives.
+#	- Code modification to resolve a problem with time calculation ($total_time).
+#
+#   List of bug fixes:
+#	v1.5.4b
+#	- Reverting our use of ditto and instead are removing the /Volumes folder prior to copy.
+#	- Set debug on as default for the script to continue monitoring use. Removed the getopts
+#		'x' option to enable debug, and removed code to turn debug on or off.
+#   v1.5.3b
+#   - update to the ditto command request. xargs was causing ditto to place /Macintosh HD/
+#       at the root level of the drive we were copying to. Since this is unacceptable, and
+#       we still need to try to keep the /Volumes folder from being copied, we are switching
+#       to a single command using find -exec to locate the files and pass them to ditto
+#	
+#   - Unimplimented functions added to facilite streamlining of code. Fewer repetitions.
+#   v1.5.1
+#   - while [ -n $scriptRUNTIME ] was not properly causing the script to terminate when ditto
+#       completed. Added double quotes to the variable name to properly evaluate it.
+#   - scriptRUNTIME was calling ps without the -c option. This could cause scriptRUNTIME to
+#       get the run time of the grep command being used to search the output of ps. If this 
+#       were to happen, it might cause incorrect times or might cause the script to never terminate.
+#	v1.5
+#	- Sometimes the Volumes folder shows up within the root level of the hard drive 
+#		(/Macintosh HD/Volumes/). Rewrote the use of ditto to avoid copying all of the volumes
+#		connected. This is acheived by listing the contents of the source into an array (minus 
+#		Volumes), and the passing the contents of that array via xargs into ditto.
+#	- Added a new function pathString. pathString helps with the new use of ditto by checking
+#		the source and target variables for a trailing '/'. If none is found, one is appended.
+#	v1.4.5
+#	- Set a default for variable debugON in order to not have an error when that line is parsed.
+#	V1.4.4
+#   - Changes to the way sizes are grabbed from du and df. df size was passing a newline 
+#       character before the number causing a parse error for bc.
+#   - Changes to use of command pipe strings in creating new variables. Replacing back-
+#       ticks with $(). Back-ticks are an archaic format.
+#   - Simplification of if statements. Create local variables to pass instead of creating 
+#       two versions of one calculation.
+#   v1.4.3
+#	- Code change to resolve a possible error with the final While loop. Changed the test 
+#       from $scriptRUNTIME > 0 to -n $scriptRUNTIME. This should avoid the scenario where 
+#       it reports an error that a unary operator was expected in the while loop evaluation.
+#	- Temporarily commented out the reporting feature for errors and current directory 
+#       location. Example log files are needed in order to properly prepare for all 
+#       reporting situations and provide accurate information.
+#
+#   v 1.4.1b
+#   - Code changes once again to fixe time estimates and size calculations. du and df use 
+#       1024 bytes as the root for calculating human readable sizes. Since Snow Leopard 
+#       and Lion use 1000 bytes as the root to more accurately reflect the sizes of drives 
+#       in "human" readable format, our calculations reflect this as well. We may split
+#       code base to have a separate pre-SL version in order to keep consistency between 
+#       the GetInfo window and sizes reported during the copy of data.
+#   - Still working on the reporting of locations during the file copy as well as reporting 
+#       of errors.
+#   v 1.4b
+#	- Code changes to fix time estimates. Estimates were incorrectly calculated in previous 
+#       version, and are now more accurately reported. 
+#	- Time estimate for Thunderbolt has been added, and is based upon a test performed by 
+#       thenextweb.com
+#	- changes to the way flags are handled to simplify the code, and in preparation for 
+#       resolving an issue where the command is called with arguments but no flags and 
+#       runs without error and without copying data. With no error, the user is left 
+#       wondering why the command did not work. Script needs to handle this situation 
+#       gracefully and provide feedback to properly inform the user of how to resolve the 
+#       issue.
+#	1.3b
+#	- Code additions to report on current directory and last error.
+#	- Code additions to provide time estimates for Thunderbolt.
+#	1.2.4
+#	- Resolved long standing issue where the command could be called with a destination 
+#       and source but no options. Command would run with no errors, and exit without 
+#       performing a copy of data. By setting an expected value for number of 
+#       strings/arguments and testing for that, we now get an error message instead.
+#	1.2.3
+#	- Lion breaks greps use of the -o (only matching) option in conjuction with matching digits. 
+#	    Switched to -e (expression) matching in order to resolve this. This option also shortens 
+#       the command.
+#	1.2.2
+#	- Additional corrections to the variables to check the source location.
+#	1.2.1
+#	- While loop now tests based on scriptRUNTIME variable, and exits properly when complete.
+#	1.2.0
+#       - Rewrite of script to try to clean up the code. Variable names should better reflect 
+#           their purpose. New function myTime to handle decimal time and present it in a 
+#           human readable format. Removed some deprecated commented code that may confuse someone
+#           reading through the script.
+#	- Removed bugs dealing with some of the variables and causing output of sizes to be incorrect.
+#       1.1.2
+#       - While loop now uses calculations to determine the scale of the data copied 
+#         in order to better present information (i.e. MB for sizes below .9GB)
+#       - du is still used in one location, when determining the size of data to be copied
+#           if the source is a folder. This is still useable in this instance, as it is only
+#           run once and stored in a variable. User is warned that it will take some time
+#           to determine the amount of data to copy when using this method.
+#       1.1.1b
+#       - Discontinue use of du command to check size of data copied.
+#           du can take too long to check size of a directory when multiple
+#           gigabytes of data are involved, and will cause a slow down of
+#           the refresh of information as well as the process of copying data.
+#       1.1.0 
+#       - Adjusted diskSpace if statement to correctly asses sizes
+#       - Adjusted use of df to correctly grab drive size
+#       1.0.9
+#       - Added two temporary variables to allow us to compare the source location 
+#			to the drives in the /Volumes folder. Allows us to determine the proper
+#			way to check file sizes of the source.
+#   	1.0.6b
+#       - More code changes to try to handle spaces in filenames
+#			when passing data to ditto.
+#		- Removed function to call man page from within script, as the man page
+#			will properly call with the command 'man plus'.
+#		- Removed unused uid variable and the unusable function to call ditto with
+#			or without sudo.
+#		- Removed debug 'echo' lines.
+#		1.0.5 final
+#		- Added double quotes to source and target variables to properly handle spaces
+#	
+#   	1.0.5b
+#       - Code changes to try to handle spaces in filenames
+#           when passing data to ditto.
+#		- Code changes in use of 'du' to better handle disk space sizes.
+#       1.0.2 resolved a problem in the handling of options by
+#       breaking down the routine into two case statements.
+#
+#   But wait, where is all the stuff that happened before this? Well, as magical a time as
+#   it was it is lost to the annals of history. Or not. I was spending so much time just
+#   trying to figure out this scripting and versioning business that I completely ignored
+#   the bits about logging changes. I should probably be drawn and quartered by those in
+#   charge, however since it is I that am in charge of this monstrosity I have deemed 
+#   such measures too barbaric. I suppose that I could sack the editor, but that job
+#   also falls under my purview so I've decided to just let bygones be bygones. 
+#
+#   Did you really read all of this? Wow. Really, just wow. I don't know if I should be
+#   impressed or concerned.
+#
 ##################################### COPYRIGHT #########################################
 #   Created 21 05, 2011 by H. R. Krewson
 #   Copyright 2011 H. R. Krewson
@@ -107,8 +287,9 @@
 #   In order to determine Approximate Amout of time it will take 
 #   to copy data this script bases its calculation on some assumptions.
 #   In Controlled setting, copying data via ditto:
-#       USB transfer of 4.99GB took 2:21 m (1GB per 28s, 35MB/s, .02857142857s/MB)
+#       USB2 transfer of 4.99GB took 2:21 m (1GB per 28s, 35MB/s, .02857142857s/MB)
 #			Corrupted transfer estimate is 3* or 1GB per 84s, 11.9MB/s, .08403361345s/MB)
+#       USB3 113.3MB/s, .0088261253s/MB
 #       FW4 transfer of 4.99GB took 2:15 m (1GB per 27s, 37MB/s, .02702702703s/MB)
 #			Corrupted transfer estimate is 3* or 1GB 81s, 12.35MB/s, .08100445525/MB
 #       FW8 transfer of 4.99GB took 1:35 m (1GB per 19s, 52.5MB/s, .01904761905s/MB)
@@ -233,9 +414,24 @@ myTARGET ()
         	exit
         fi
     fi
-
-    sizeInitial=$(df "$target" | awk '!/Used/ {print $3}')
+    #Below we use df and awk to extract used 512b blocks, this is innacurate
+    #thanks to either the journal or a difference between block sizes on the 
+    #device vs those used by HFS+ (512b vs 4096b)
+    #sizeInitial=$(df "$target" | awk '!/Used/ {print $3}')
+    #This innacuracy is emphasized by the following command:
+    #df / | awk 'FNR == 2 {print $2,"-"$4,"-"$3}' | bc
+    #which subtracts "used" and "available" blocks from total blocks.
+    #A calculation which results in 512000 (262.1MB) on my 3TB drive.
+    #The above sizeInitial results in 3911071072 (2.002468TB) on my drive vs.
+    #the correct size of 3911583072 (2.002730TB) verified in "Get Info"
+    #The more accurate method for attaining the amount of data on a drive is thus
+    #df / | awk 'FNR == 2 {print"("$2,"-"$4,")*512"}' | bc
+    # awk 'FNR == 2' prints from line 2 of the output. With proper formatting
+    #we send directly to bc to calculate.
+    sizeInitial=$(df "$target" | awk 'FNR == 2 {print "("$2,"-"$4,")*512"}' | bc)
     myLOGGER "Calculated size of data in $target."
+    #by having a starting value of data in our target directory, we can more accurately
+    #determine how much of our data has been copied.
 	}
 	
 diskSpace ()
