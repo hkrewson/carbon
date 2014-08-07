@@ -3,6 +3,9 @@
 #
 #
 #	carbon
+#   v20140807
+#   - Adding error numbers for logging. See /usr/include/sysexits.h. File can be found at:
+#       http://www.opensource.apple.com/source/Libc/Libc-320/include/sysexits.h
 #   v20140805
 #   - New calculation for space used. 
 #   v20140312
@@ -305,7 +308,7 @@
 ##### HEADER ENDS #####
 
 ###################################### GLOBAL VARIABLES ######################################
-version="20140312b"                                             
+version="20140807b"                                             
 width=$(tput cols)                                             #Determine width of window
 refresh=10                                                     #Set default refresh
 copiedRAW=0                                                    #Set the initial amount of data copied
@@ -396,7 +399,7 @@ targTEST ()
     tarTEST=$(echo $target | awk -F/ '{print $(NF-2)}')
     if [[ "$tarTEST" = "Volumes" ]]; then
         myLOGGER -t "myTARGET error: Cannot create a new location in directory /Volumes."
-        exit
+        exit 1
     fi
     }
     	
@@ -410,8 +413,8 @@ myTARGET ()
         if [[ -d "$target" ]]; then
         	myLOGGER "Created target directory: $target"
         else
-        	myLOGGER -t "myTARGET error: Destination is read-only, cannot continue."
-        	exit
+        	myLOGGER -t "myTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only."
+        	exit 73
         fi
     fi
     #Below we use df and awk to extract used 512b blocks, this is innacurate
@@ -618,9 +621,9 @@ echo $source $target
 ## Check for no opts: if ( ! getopts "OPTSTRING" VARNAME ); Placed just prior to while getopts call
 # Check for valid -options being set. If no -options are specified, return usage to the user.
 if ( ! getopts "u48tevhmd" opt); then
-    myLOGGER "getopts error: no flags used. Printing usage message."
+    myLOGGER "getopts [ERROR]:[EX-USAGE]:64 - No flags used. Printing usage message."
     myLOGGER -t "Usage: `basename $0` options (-u48temd) (-v version) -h for help"
-    exit;
+    exit 64;
 fi
 
 
@@ -636,7 +639,7 @@ while getopts "u48tevhasmd" opt; do
 		t)	bus="Thunderbolt";  type=.01041666667; typef=.03090234858; transrateL=32; transrateH=96;;
 		e)	bus="Ethernet"; type=.01904761905; typef=.05714285714; transrateL=18; transrateH=53;;
 		v)  myVersion;;											
-		h)	myHelp | less; exit;;	
+		h)	myHelp | less; exit 0;;	
 		m)  mount -uw /; mySYSCHECK; myUSERNAME; mySETUP;;
 		d)  mydmg=1;;
 	esac
@@ -695,6 +698,7 @@ for i in "${SOURCELIST[@]}"
 		echo "Copying $i"
 		myLOGGER "Copying $i"
 		sudo ditto -V "$i" "$target$i" 2>>$clog &
+		myLOGGER "$0: copy $i return status is $?"      # Returns exit status of ditto.
         dittoERR
         
 		#sleep 4                                         # Pause the script for 4 seconds.
