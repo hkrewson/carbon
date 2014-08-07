@@ -4,6 +4,13 @@
 #       information.
 #       http://ibm.co/USyKVd
 #       "You can convert 512 byte blocks to kilobytes by dividing them by 2.   For example, six 512-byte-blocks divided by two equals 3 KB."
+#       While this is technically accurate, the sizing scheme of OSX has changed
+#       in recent versions. We now use a base 10 system. Number of blocks times 512
+#       results in an accurate number of bytes and will bring us within a few hundred MB
+#       of the amount of data stored on the current boot volume, and will be
+#       close to exact for the amount of data on a non-boot volume. Current math in carbon
+#       is correct. On 3TB boot volume, block count from df is 512000 blocks short of
+#       size displayed in "Get Info".
 #       08/01/2014 02:10a   TO DO
 #           Make a small function to determine Linux v BSD, and error
 #       check date math with expected values.
@@ -88,3 +95,7 @@ tput cup $lined 0
 #http://stackoverflow.com/questions/13422743/convert-seconds-to-formatted-time-in-shell
 #date -u -d @${i} +"%T"  #For "Coreutils" Linux date variant
 #date -u -r $i +%T       #For BSD/OSX date variant
+
+
+#make call to ditto in a second script. Background this script.
+#ditto script then performs error handling and reporting directly.
