@@ -3,6 +3,10 @@
 #
 #
 #	carbon
+#   v20140821
+#   - More logging.
+#   - targTEST -- if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]
+#       Should test target directory and verify we are not creating a folder in "Volumes".
 #   v20140807
 #   - Adding error numbers for logging. See /usr/include/sysexits.h. File can be found at:
 #       http://www.opensource.apple.com/source/Libc/Libc-320/include/sysexits.h
@@ -397,8 +401,11 @@ targTEST ()
     {
     #Function verifies we are not creating a new location in the /Volumes director
     tarTEST=$(echo $target | awk -F/ '{print $(NF-2)}')
-    if [[ "$tarTEST" = "Volumes" ]]; then
+    if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]; then
+        myLOGGER "targTEST [SUCCESS]:[TARGET]:0 Directory location is valid."
+    else
         myLOGGER -t "myTARGET error: Cannot create a new location in directory /Volumes."
+        myLOGGER "targTEST [FAILURE]:[TARGET]:1 Directory location is invalid."
         exit 1
     fi
     }
@@ -406,7 +413,7 @@ targTEST ()
 myTARGET ()
 	{
     if [[ -d "$target" ]]; then
-        myLOGGER "Target directory exists. $target"
+        myLOGGER "myTARGET [CHECK]:[DIR]:0 directory exists. $target"
     else
     	targTEST
         sudo mkdir "$target"
@@ -432,7 +439,7 @@ myTARGET ()
     # awk 'FNR == 2' prints from line 2 of the output. With proper formatting
     #we send directly to bc to calculate.
     sizeInitial=$(df "$target" | awk 'FNR == 2 {print "("$2,"-"$4,")*512"}' | bc)
-    myLOGGER "Calculated size of data in $target."
+    myLOGGER "myTARGET [CALC]:[SIZE]:0 Calculated size of data in $target. $sizeInitial"
     #by having a starting value of data in our target directory, we can more accurately
     #determine how much of our data has been copied.
 	}
@@ -446,21 +453,23 @@ diskSpace ()
     pathString "$target" target                                                             #Ensure path has a trailing /
     myLOGGER -t "Calculating size of data to be copied using command du. This will take some time, please be patient."
     sizeRAW=$(du -sPx "$source" | awk '{print $1}')                                         #sizeRAW is used for calculations
-    myLOGGER "Calculated size of data in source folder. $sizeRAW"    
+    myLOGGER "diskSpace [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
     ##### END CHECK SOURCE #####  
     ##### CHECK TARGET #####   
     if [ $mydmg -eq 1 ]; then
-    	myLOGGER "Function call to myDMG."
+    	myLOGGER "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myDMG."
     	myDMG
     	
     else
-    	myLOGGER "Function call to myTARGET."
+    	myLOGGER "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myTARGET."
     	myTARGET
     fi
     ##### END CHECK TARGET #####    
     ##### HUMAN READABLE SIZE OF SOURCE #####
+    myLOGGER "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function mySCALE on raw size $sizeRAW."
     mySCALE $sizeRAW
     sizeHUMAN=$(echo "scale=2; ($sizeRAW*512)/$sdiv" | bc)$sunit                            #Calculate size
+    myLOGGER "diskSpace [CALC]:[SIZE]:0 Calculated size of source in human readable format. $sizeHUMAN"
     ##### END HUMAN READABLE SIZE #####
     myLOGGER "---------------End Function diskSpace--------------"
     }
@@ -517,8 +526,8 @@ checkDIR ()
 		# checkDIR looks for a file in the directory plus is run from. If a file named '0'
 		#+ is found, the script attempts to remove it prior to continuing.
 	if [ -e ./0 ]; then
-		myLOGGER "Zero byte file located, removing."
-		sudo rm ./0
+		myLOGGER "checkDIR [SUCCESS]:[ZFILE] Zero byte file located."
+		sudo rm ./0 && myLOGGER "checkDIR [SUCCESS]:[ZFILE] Zero byte file removed."
 	fi
 	}
 	
