@@ -5,6 +5,10 @@ Changelog
 #
 #
 #	carbon
+#   v20140821
+#   - More logging.
+#   - targTEST -- if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]
+#       Should test target directory and verify we are not creating a folder in "Volumes".
 #   v20140807
 #   - Adding error numbers for logging. See /usr/include/sysexits.h. File can be found at:
 #       http://www.opensource.apple.com/source/Libc/Libc-320/include/sysexits.h
