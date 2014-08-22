@@ -5,6 +5,11 @@ Changelog
 #
 #
 #	carbon
+#   v20140822
+#   - Began working through data from log dumps. Have only gotten through the initial phase
+#       (pre-copy). Lot of data to wade through and validate.
+#   - Working on time calculations. Two options. One using a longer decimal value and time
+#       intensive calculations. The other is to make date do the math.
 #   v20140821
 #   - More logging.
 #   - targTEST -- if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]
