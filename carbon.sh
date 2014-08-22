@@ -3,6 +3,11 @@
 #
 #
 #	carbon
+#   v20140822
+#   - Began working through data from log dumps. Have only gotten through the initial phase
+#       (pre-copy). Lot of data to wade through and validate.
+#   - Working on time calculations. Two options. One using a longer decimal value and time
+#       intensive calculations. The other is to make date do the math.
 #   v20140821
 #   - More logging.
 #   - targTEST -- if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]
@@ -494,7 +499,7 @@ myVersion ()                                                    						#Function 
 myTime ()                                                       						#Calculate times from decimal values
     {
     myLOGGER "--------------Function myTime.--------------"
-    time=$(echo "scale=4; $1/60/60" | bc)
+    time=$(echo "scale=9; $1/60/60" | bc)
     myLOGGER "Calculate $time ."
     timeHours=$(echo ${time%.*})
     if [[ $timeHours -gt 0 ]]; then
@@ -504,9 +509,14 @@ myTime ()                                                       						#Calculate
         timeHours=0
         myLOGGER "Time is in minutes and seconds."
     fi
-    timeMinutes=$(echo "scale=0; (${time#*.}*60/10000)" | bc)
-    timeMinutesP=$(echo "scale=0; (${time#*.}*60/10000)" | bc)
-    timeSeconds=$(echo "scale=0; (${timeMinutesP#*.}*60/100)" | bc)
+    timeMinutes=$(echo "scale=0; (${time#*.}*60/1000000000)" | bc)
+    timeMinutesP=$(echo "scale=4; (${time#*.}*60/1000000000)" | bc)
+    timeSeconds=$(echo "scale=0; (${timeMinutesP#*.}*60/10000)" | bc)
+    
+    #Alternately
+    #time=$(date -u -r $1 +%T)
+    #which will output hours minutes and seconds in the format 00:00:00
+    #Requires that input be an integer value (scale=0)
     myLOGGER "------------End Function myTime-------------"
     }
 
@@ -657,7 +667,7 @@ done
 ############################### DETERMINE AMOUNT OF DATA AND ETA #####################################
  myLOGGER "Transferring data over $bus."
  diskSpace								
- transTimeRaw=$(echo "scale=0; (($sizeRAW*512)/1000000)*$typef" | bc) 
+ transTimeRaw=$(echo "scale=9; (($sizeRAW*512)/1000000)*$typef" | bc) 
  myTime $transTimeRaw
  echo "We are about to copy" $sizeHUMAN"B of data."
  etaO="$timeHours Hours $timeMinutes Minutes $timeSeconds Seconds"
