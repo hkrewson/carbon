@@ -5,6 +5,15 @@ Changelog
 #
 #
 #	carbon
+#   V20140904
+#   - New version of dittoERR (). This version searches subsections of the ditto log file
+#       and parses errors into one of two arrays (aERROR, or aFILE). Two arrays may be 
+#       overkill for this, we may change it in the future. 
+#   - Added output to display the last error recorded in the ditto log file.
+#   v20140829
+#   - Removed "512" from the calculation for sizeInitial. This was one cause for incorrect 
+#       initial values, and incorrect percentage of completion reports.
+#   - Legacy flag options 'm' and 's' removed. 
 #   v20140822
 #   - Began working through data from log dumps. Have only gotten through the initial phase
 #       (pre-copy). Lot of data to wade through and validate.

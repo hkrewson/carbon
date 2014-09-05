@@ -3,6 +3,15 @@
 #
 #
 #	carbon
+#   V20140904
+#   - New version of dittoERR (). This version searches subsections of the ditto log file
+#       and parses errors into one of two arrays (aERROR, or aFILE). Two arrays may be 
+#       overkill for this, we may change it in the future. 
+#   - Added output to display the last error recorded in the ditto log file.
+#   v20140829
+#   - Removed "512" from the calculation for sizeInitial. This was one cause for incorrect 
+#       initial values, and incorrect percentage of completion reports.
+#   - Legacy flag options 'm' and 's' removed. 
 #   v20140822
 #   - Began working through data from log dumps. Have only gotten through the initial phase
 #       (pre-copy). Lot of data to wade through and validate.
@@ -337,6 +346,20 @@ export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 exec 2>~/Desktop/DEBUG$today
 set -x
 ########################################### FUNCTIONS ###########################################
+why ()
+    {
+        echo "Why use the command known as
+.Xr ditto 1?
+The best thing about this command is that it will work hard to read any file it comes across. If 
+.Xr ditto 1
+cannot read the file, it will log an error and move to the next file. Additionally, 
+.Xr ditto 1
+will also copy all associated data and meta data, including file permissions and ownership without the need to explicitly tell it to do so. Other commands with the appropriate flags will behave much the same, such as the utility
+.Xr rsync 1.
+However, to work properly,
+.Xr rsync 1
+requires specific flags and setup. Admittedly, it does have some interesting features that may make it well suited to this task."
+    }
 myHelp ()
     {
 		echo ""
@@ -388,6 +411,9 @@ myHelp ()
 
 myLOGGER ()
 	{
+	#
+    # http://stackoverflow.com/questions/11904907/redirect-stdout-and-stderr-to-function
+    # Shows example to pull data from stdin
 	if [[ $1 == "-t" ]]; then
 	   shift
 	   echo "$*"
@@ -443,8 +469,8 @@ myTARGET ()
     #df / | awk 'FNR == 2 {print"("$2,"-"$4,")*512"}' | bc
     # awk 'FNR == 2' prints from line 2 of the output. With proper formatting
     #we send directly to bc to calculate.
-    sizeInitial=$(df "$target" | awk 'FNR == 2 {print "("$2,"-"$4,")*512"}' | bc)
-    myLOGGER "myTARGET [CALC]:[SIZE]:0 Calculated size of data in $target. $sizeInitial"
+    sizeInitial=$(df "$target" | awk 'FNR == 2 {print "("$2,"-"$4,")"}' | bc)
+    myLOGGER "myTARGET [CALC]:[SIZE]:0 Calculated size of data in [target]:[$target]. $sizeInitial"
     #by having a starting value of data in our target directory, we can more accurately
     #determine how much of our data has been copied.
 	}
@@ -471,7 +497,7 @@ diskSpace ()
     fi
     ##### END CHECK TARGET #####    
     ##### HUMAN READABLE SIZE OF SOURCE #####
-    myLOGGER "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function mySCALE on raw size $sizeRAW."
+    myLOGGER "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function mySCALE on raw size [source]:[$source] $sizeRAW."
     mySCALE $sizeRAW
     sizeHUMAN=$(echo "scale=2; ($sizeRAW*512)/$sdiv" | bc)$sunit                            #Calculate size
     myLOGGER "diskSpace [CALC]:[SIZE]:0 Calculated size of source in human readable format. $sizeHUMAN"
@@ -542,22 +568,46 @@ checkDIR ()
 	}
 	
 dittoERR ()
-	{
-	#Function to check carbon.error.log for error messages from ditto and report ().
-	#Start by putting the default IFS into temporary storage and setting a new IFS.
-	#Create the error list by using cat to pipe output of the log file into egrep
-	#+ using -w to tell egrep to search for separate words only.
-	IFSOLD=$IFS
-	IFS=$'\n'
-	dittoERROR=(`cat $clog | egrep -w '(error\\b|Read-only|Device not configured|No space left|No such file)'`)
-	case $dittoERROR in
-	   "error") echo $dittoERROR;;
-	   *"Read-only"*) echo $dittoERROR; echo "ditto error: Device is read only. Reformat the drive and try again.";;
-	   *"Device not configured"*) echo $dittoERROR; echo "ditto error: Drive may have unmounted. Try a different cable.";;
-	   *"No space left"*) echo $dittoERROR; echo "ditto error: Drive has run out of available disk space.";;
-    esac	
+    {
+    #Call passes in one variable. $1 is the iteration step number, subtracting 
+    # 1 from this gives us the section of the log to parse.
+    
+    #Save the current internal field seperator.
+    IFSOLD=$IFS
+    
+    #Set the internal field seperator to newline character.
+    IFS=$'\n'
+    
+    #Initialize some arrays.
+    aERROR=()
+    aFILE=()
+    
+    #Get variables.
+    COUNT=$1
+    
+    
+    #Create a list of errors for this section.
+    #ERRORLIST=($(cat carbon.copy.log | sed -n -e "/${SOURCELIST[$((x-1))]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
+    ERRORLIST=($(cat carbon.copy.log | sed -n -e "/${SOURCELIST[$((COUNT-1))]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
+
+    #Dump ERRORSLIST into an array
+    for i in "${ERRORLIST[@]}"
+        do
+        case $i in
+            "error")myLOGGER $i;aERROR+=($i) ;;
+	        *"Read-only"*)myLOGGER $i; aERROR+=($i);;
+	        *"Device not configured"*)myLOGGER $i; aERROR+=($i);;
+	        *"No space left"*)myLOGGER $i; aERROR+=($i);;
+	        *"No such file"*)aFILE+=($i);;
+        esac
+        done
+    
+    #Return IFS to original value.
 	IFS=$IFSOLD
-	}
+    
+    #Empty ERRORLIST before returning to the script.
+    unset 'ERRORLIST[@]'
+    }
 	
 mySYSCHECK ()
 	{
@@ -586,6 +636,10 @@ myVERSREQ ()
 
 	}
 	
+float () 
+    {
+    printf "%.0f\n" "$@"
+    }
 
 myDMG ()
 	{
@@ -602,7 +656,7 @@ myDMG ()
 	hdiutil mount $dmgname.sparseimage
 	target="/Volumes/$dmgname/"
 	sizeInitial=$(df "$target" | awk '!/Used/ {print $3}')
-    myLOGGER "Calculated size of data in $target."
+    myLOGGER "Calculated size of data in [Target] directory $target."
 	}
 	
 isCOMPLETE ()
@@ -639,9 +693,9 @@ echo $source $target
 ## Base use of getopts: while getopts "OPTSTRING" VARNAME;
 ## Check for no opts: if ( ! getopts "OPTSTRING" VARNAME ); Placed just prior to while getopts call
 # Check for valid -options being set. If no -options are specified, return usage to the user.
-if ( ! getopts "u48tevhmd" opt); then
+if ( ! getopts "u48tevhd?" opt); then
     myLOGGER "getopts [ERROR]:[EX-USAGE]:64 - No flags used. Printing usage message."
-    myLOGGER -t "Usage: `basename $0` options (-u48temd) (-v version) -h for help"
+    myLOGGER -t "Usage: `basename $0` options (-u48ted) (-v version) -h for help"
     exit 64;
 fi
 
@@ -649,8 +703,9 @@ fi
 myLOGGER "$0 $- $@"
 
 # Getopts is called to check which options are being specified. Appropriate variables are set for each option.
+
 myLOGGER "carbon called with $1 option(s)."
-while getopts "u48tevhasmd" opt; do
+while getopts "u48tevhd" opt; do
 	case $opt in
 		u)	bus="USB"; type=.02857142857; typef=.08403361345; transrateL=12; transrateH=35;;
 		4)	bus="FW 400"; type=.02702702703; typef=.08100445525; transrateL=12; transrateH=37;;
@@ -659,8 +714,8 @@ while getopts "u48tevhasmd" opt; do
 		e)	bus="Ethernet"; type=.01904761905; typef=.05714285714; transrateL=18; transrateH=53;;
 		v)  myVersion;;											
 		h)	myHelp | less; exit 0;;	
-		m)  mount -uw /; mySYSCHECK; myUSERNAME; mySETUP;;
 		d)  mydmg=1;;
+		?)  why | nroff -msafer -mandoc; exit 0;;
 	esac
 done
 
@@ -712,13 +767,16 @@ IFS=$IFSTMP
 #-----------------------------------------------------------------------------------------------------------------
 #
 ####################################################################################################
+count=0
+COPIED=()
 for i in "${SOURCELIST[@]}"
 	do
 		echo "Copying $i"
 		myLOGGER "Copying $i"
 		sudo ditto -V "$i" "$target$i" 2>>$clog &
-		myLOGGER "$0: copy $i return status is $?"      # Returns exit status of ditto.
-        dittoERR
+		myLOGGER "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
+		COPIED+=($i)
+        dittoERR $count
         
 		#sleep 4                                         # Pause the script for 4 seconds.
 		clear
@@ -771,10 +829,11 @@ for i in "${SOURCELIST[@]}"
 				# Display information on the current working directory/file and the most recent error.
 				
 				lastFILE="($(ls -A $i | tail -n 1))"
+                lastERRORDITTO=$(cat carbon.copy.log | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)' | tail -n 1)
 				echo "Currently copying items in: "$i
 				echo "Last item copied was: $lastFILE"
                 echo "Last error: $lastERROR"
-                dittoERR
+                echo "Last error from ditto: $lastERRORDITTO"
 				
 				copiedTEMP=$copiedRAW
         		# Script will now sleep for $refresh seconds. Default value of $refresh is 10.
@@ -782,6 +841,7 @@ for i in "${SOURCELIST[@]}"
         		clear
         		runtime
             done		
+        ((count += 1))
     done
 ########################################### END FOR LOOP ###########################################
 
