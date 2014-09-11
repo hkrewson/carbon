@@ -5,6 +5,17 @@ Changelog
 #
 #
 #	carbon
+#   v20140911
+#   - Error logging and parsing of log file from ditto is handled within the function cLOGGER
+#       using nested functions clogger.file and clogger.ditto respectively. This grouping of
+#       functions is initialized during script startup. At this point, these functions should
+#       handle all the same error reporting and file logging. Log parsing should be much better.
+#   v20140908
+#   - Breaking things. Adding in error logging and checking for ditto, and making a large 
+#       change to the way this happens. Until this is incorporated, some variables are
+#       broken. Notably, the new variables for $lastERROR and $lastFERROR. Once the logging
+#       function is fully replaced/implimented, these variables will be working again. Until
+#       then, use an older version.
 #   V20140904
 #   - New version of dittoERR (). This version searches subsections of the ditto log file
 #       and parses errors into one of two arrays (aERROR, or aFILE). Two arrays may be 

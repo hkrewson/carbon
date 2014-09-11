@@ -3,6 +3,17 @@
 #
 #
 #	carbon
+#   v20140911
+#   - Error logging and parsing of log file from ditto is handled within the function cLOGGER
+#       using nested functions clogger.file and clogger.ditto respectively. This grouping of
+#       functions is initialized during script startup. At this point, these functions should
+#       handle all the same error reporting and file logging. Log parsing should be much better.
+#   v20140908
+#   - Breaking things. Adding in error logging and checking for ditto, and making a large 
+#       change to the way this happens. Until this is incorporated, some variables are
+#       broken. Notably, the new variables for $lastERROR and $lastFERROR. Once the logging
+#       function is fully replaced/implimented, these variables will be working again. Until
+#       then, use an older version.
 #   V20140904
 #   - New version of dittoERR (). This version searches subsections of the ditto log file
 #       and parses errors into one of two arrays (aERROR, or aFILE). Two arrays may be 
@@ -335,8 +346,8 @@ sysREQ=(5 6 7 8 9)
 SYSTEM=$(sw_vers -productVersion | awk -F. '{print $2}')
 copiedTEMP=0
 log=~/Library/Logs/carbon.current.log
-clog=/Library/Logs/carbon.copy.log
-elog=/Library/Logs/carbon.error.log
+clog=~/Library/Logs/carbon.copy.log
+elog=~/Library/Logs/carbon.error.log
 stamp=$(date +"%D %T")
 today=$(date +"%m_%d_%Y")
 ####################################### SET DEBUG TRUE #######################################
@@ -409,34 +420,103 @@ myHelp ()
     myLOGGER "Printed help message."
     }
 
-myLOGGER ()
-	{
-	#
-    # http://stackoverflow.com/questions/11904907/redirect-stdout-and-stderr-to-function
-    # Shows example to pull data from stdin
-	if [[ $1 == "-t" ]]; then
-	   shift
-	   echo "$*"
-    fi
-	if [[ $( echo $1 | egrep -w '(error\\b|error:)' ) ]]; then
-        logfile=$elog
-        lastERROR="$1"
+cLOGGER () 
+    {
+    clogger.file()
+        {
+        #Logfile Date Stamp
+        stamp=$(date +"[%m/%d/%y %H:%M:%S]")
+        
+        #Branch to correct log file.
+        while getopts "te" opt; do
+            case "${opt}" in
+                l)  shift; echo $stamp "$*" >> $log;;
+                e)  shift; echo $stamp "$*" >> $elog;;
+                t) shift; echo $stamp "$*" | tee -a $log;;
+            esac
+        done
+        unset OPTIND
+        }
+    clogger.ditto()
+        {
+    #Call passes in one variable. $1 is the iteration step number, subtracting 
+    # 1 from this gives us the section of the log to parse.
+     if [[ $1 == "dump" ]]; then
+            clogger.file -e ${aERROR[$@]}
+            clogger.file -e ${aFILE[$@]}
     else
-        logfile=$log
-    fi   
-	stamp=$(date +"[%m/%d/%y %H:%M:%S]")
-	echo $stamp "$1" >>$logfile
-	}
+        #Save the current internal field seperator.
+        IFSOLD=$IFS
+        
+        #Set the internal field seperator to newline character.
+        IFS=$'\n'
+        
+        #Initialize some arrays.
+        aERROR=()
+        aFILE=()
+        
+        #Get variables.
+        COUNT=$1
+    
+        if [[ $COUNT -eq 0 ]]; then
+        	echo
+        else
+            #Create a list of errors for this section.
+            ERRORLIST=($(cat carbon.copy.log | sed -n "/>>>\ Copying\ ${SOURCELIST[$((COUNT-1))]}/ ,/>>>\ Copying\ ${SOURCELIST[$COUNT]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
+            
+            #Dump ERRORSLIST into an array
+            for i in "${ERRORLIST[@]}"
+                do
+                case $i in
+                    "error")clogger.file -l $i;aERROR+=($i) ;;
+        	        *"Read-only"*)clogger.file -l $i; aERROR+=($i);;
+        	        *"Device not configured"*)clogger.file -l $i; aERROR+=($i);;
+        	        *"No space left"*)clogger.file -l $i; aERROR+=($i);;
+        	        *"No such file"*)aFILE+=($i);;
+                esac
+                done
+        
+        	clogger.file -l "[.ditto]: >>> Copying ${SOURCELIST[$((COUNT-1))]}"  
+        	lastERROR=$(echo ${aERROR[@]} | tail -n 1)
+        	lastFERROR=$(echo ${aFILE[@]} | tail -n 1)
+        	
+            for i in "${aFILE[@]}"
+            	do
+                    echo $i
+            	done
+            
+            for i in "${aERROR[@]}"
+            	do
+                    echo $i
+            	done
+        fi
+    fi
+    #Return IFS to original value.
+	IFS=$IFSOLD
+    
+    #Empty ERRORLIST before returning to the script.
+    unset 'ERRORLIST[@]'    
+        }
+    #if statement only used if calling as cLOGGER [file | ditto] $option
+    if [[ $1 == "file" ]]; then
+        shift
+        clogger.file "$@"
+    elif [[ $1 == "ditto" ]]; then 
+        shift
+        clogger.ditto "$*"
+    fi
+        
+    }
 
 targTEST ()
     {
     #Function verifies we are not creating a new location in the /Volumes director
     tarTEST=$(echo $target | awk -F/ '{print $(NF-2)}')
     if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]; then
-        myLOGGER "targTEST [SUCCESS]:[TARGET]:0 Directory location is valid."
+        clogger.file -t "targTEST [SUCCESS]:[TARGET]:0 Directory location is valid."
     else
-        myLOGGER -t "myTARGET error: Cannot create a new location in directory /Volumes."
-        myLOGGER "targTEST [FAILURE]:[TARGET]:1 Directory location is invalid."
+        clogger.file -t "myTARGET error: Cannot create a new location in directory /Volumes."
+        clogger.file -l "targTEST [FAILURE]:[TARGET]:1 Directory location is invalid."
         exit 1
     fi
     }
@@ -444,14 +524,14 @@ targTEST ()
 myTARGET ()
 	{
     if [[ -d "$target" ]]; then
-        myLOGGER "myTARGET [CHECK]:[DIR]:0 directory exists. $target"
+        clogger.file -l "myTARGET [CHECK]:[DIR]:0 directory exists. $target"
     else
     	targTEST
         sudo mkdir "$target"
         if [[ -d "$target" ]]; then
-        	myLOGGER "Created target directory: $target"
+        	clogger.file -l "Created target directory: $target"
         else
-        	myLOGGER -t "myTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only."
+        	clogger.file -t "myTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only."
         	exit 73
         fi
     fi
@@ -470,70 +550,70 @@ myTARGET ()
     # awk 'FNR == 2' prints from line 2 of the output. With proper formatting
     #we send directly to bc to calculate.
     sizeInitial=$(df "$target" | awk 'FNR == 2 {print "("$2,"-"$4,")"}' | bc)
-    myLOGGER "myTARGET [CALC]:[SIZE]:0 Calculated size of data in [target]:[$target]. $sizeInitial"
+    clogger.file -l "myTARGET [CALC]:[SIZE]:0 Calculated size of data in [target]:[$target]. $sizeInitial"
     #by having a starting value of data in our target directory, we can more accurately
     #determine how much of our data has been copied.
 	}
 	
 diskSpace ()
     {
-    myLOGGER "---------------Function diskSpace--------------"
+    clogger.file -l "---------------Function diskSpace--------------"
     clear                                                                             
     ##### CHECK SOURCE #####
     pathString "$source" source                                                             #Ensure path has a trailing /
     pathString "$target" target                                                             #Ensure path has a trailing /
-    myLOGGER -t "Calculating size of data to be copied using command du. This will take some time, please be patient."
+    clogger.file -t "Calculating size of data to be copied using command du. This will take some time, please be patient."
     sizeRAW=$(du -sPx "$source" | awk '{print $1}')                                         #sizeRAW is used for calculations
-    myLOGGER "diskSpace [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
+    clogger.file -l "diskSpace [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
     ##### END CHECK SOURCE #####  
     ##### CHECK TARGET #####   
     if [ $mydmg -eq 1 ]; then
-    	myLOGGER "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myDMG."
+    	clogger.file -l "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myDMG."
     	myDMG
     	
     else
-    	myLOGGER "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myTARGET."
+    	clogger.file -l "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myTARGET."
     	myTARGET
     fi
     ##### END CHECK TARGET #####    
     ##### HUMAN READABLE SIZE OF SOURCE #####
-    myLOGGER "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function mySCALE on raw size [source]:[$source] $sizeRAW."
+    clogger.file -l "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function mySCALE on raw size [source]:[$source] $sizeRAW."
     mySCALE $sizeRAW
     sizeHUMAN=$(echo "scale=2; ($sizeRAW*512)/$sdiv" | bc)$sunit                            #Calculate size
-    myLOGGER "diskSpace [CALC]:[SIZE]:0 Calculated size of source in human readable format. $sizeHUMAN"
+    clogger.file -l "diskSpace [CALC]:[SIZE]:0 Calculated size of source in human readable format. $sizeHUMAN"
     ##### END HUMAN READABLE SIZE #####
-    myLOGGER "---------------End Function diskSpace--------------"
+    clogger.file -l "---------------End Function diskSpace--------------"
     }
 
 mySCALE ()
     {
         if [ $1 -lt 1757813 ]; then                                                       #Is size below MB threshhold 
         sdiv=1000000 sunit=M                                                                #Size is in MB
-    	myLOGGER "Size calculation in MB."
+    	clogger.file -l "Size calculation in MB."
     else
         sdiv=1000000000 sunit=G                                                             #Size is in GB
-    	myLOGGER "Size calculation in GB."
+    	clogger.file -l "Size calculation in GB."
     fi
     }
     
 myVersion ()                                                    						#Function to provide version of carbon
     {
-    myLOGGER -t "carbon $version"
+    clogger.file -t "carbon $version"
     exit
     }
     
 myTime ()                                                       						#Calculate times from decimal values
     {
-    myLOGGER "--------------Function myTime.--------------"
+    clogger.file -l "--------------Function myTime.--------------"
     time=$(echo "scale=9; $1/60/60" | bc)
-    myLOGGER "Calculate $time ."
+    clogger.file -l "Calculate $time ."
     timeHours=$(echo ${time%.*})
     if [[ $timeHours -gt 0 ]]; then
         echo ""
-        myLOGGER "Time is in hours minutes and seconds. $timeHours"
+        clogger.file -l "Time is in hours minutes and seconds. $timeHours"
     else
         timeHours=0
-        myLOGGER "Time is in minutes and seconds."
+        clogger.file -l "Time is in minutes and seconds."
     fi
     timeMinutes=$(echo "scale=0; (${time#*.}*60/1000000000)" | bc)
     timeMinutesP=$(echo "scale=4; (${time#*.}*60/1000000000)" | bc)
@@ -543,7 +623,7 @@ myTime ()                                                       						#Calculate
     #time=$(date -u -r $1 +%T)
     #which will output hours minutes and seconds in the format 00:00:00
     #Requires that input be an integer value (scale=0)
-    myLOGGER "------------End Function myTime-------------"
+    clogger.file -l "------------End Function myTime-------------"
     }
 
 pathString ()
@@ -562,52 +642,52 @@ checkDIR ()
 		# checkDIR looks for a file in the directory plus is run from. If a file named '0'
 		#+ is found, the script attempts to remove it prior to continuing.
 	if [ -e ./0 ]; then
-		myLOGGER "checkDIR [SUCCESS]:[ZFILE] Zero byte file located."
-		sudo rm ./0 && myLOGGER "checkDIR [SUCCESS]:[ZFILE] Zero byte file removed."
+		clogger.file -l "checkDIR [SUCCESS]:[ZFILE] Zero byte file located."
+		sudo rm ./0 && clogger.file -l "checkDIR [SUCCESS]:[ZFILE] Zero byte file removed."
 	fi
 	}
 	
-dittoERR ()
-    {
-    #Call passes in one variable. $1 is the iteration step number, subtracting 
-    # 1 from this gives us the section of the log to parse.
+# dittoERR ()
+#     {
+#     #Call passes in one variable. $1 is the iteration step number, subtracting 
+#     # 1 from this gives us the section of the log to parse.
     
-    #Save the current internal field seperator.
-    IFSOLD=$IFS
+#     #Save the current internal field seperator.
+#     IFSOLD=$IFS
     
-    #Set the internal field seperator to newline character.
-    IFS=$'\n'
+#     #Set the internal field seperator to newline character.
+#     IFS=$'\n'
     
-    #Initialize some arrays.
-    aERROR=()
-    aFILE=()
+#     #Initialize some arrays.
+#     aERROR=()
+#     aFILE=()
     
-    #Get variables.
-    COUNT=$1
+#     #Get variables.
+#     COUNT=$1
     
     
-    #Create a list of errors for this section.
-    #ERRORLIST=($(cat carbon.copy.log | sed -n -e "/${SOURCELIST[$((x-1))]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
-    ERRORLIST=($(cat carbon.copy.log | sed -n -e "/${SOURCELIST[$((COUNT-1))]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
+#     #Create a list of errors for this section.
+#     #ERRORLIST=($(cat carbon.copy.log | sed -n -e "/${SOURCELIST[$((x-1))]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
+#     ERRORLIST=($(cat carbon.copy.log | sed -n -e "/${SOURCELIST[$((COUNT-1))]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
 
-    #Dump ERRORSLIST into an array
-    for i in "${ERRORLIST[@]}"
-        do
-        case $i in
-            "error")myLOGGER $i;aERROR+=($i) ;;
-	        *"Read-only"*)myLOGGER $i; aERROR+=($i);;
-	        *"Device not configured"*)myLOGGER $i; aERROR+=($i);;
-	        *"No space left"*)myLOGGER $i; aERROR+=($i);;
-	        *"No such file"*)aFILE+=($i);;
-        esac
-        done
+#     #Dump ERRORSLIST into an array
+#     for i in "${ERRORLIST[@]}"
+#         do
+#         case $i in
+#             "error")myLOGGER $i;aERROR+=($i) ;;
+# 	        *"Read-only"*)myLOGGER $i; aERROR+=($i);;
+# 	        *"Device not configured"*)myLOGGER $i; aERROR+=($i);;
+# 	        *"No space left"*)myLOGGER $i; aERROR+=($i);;
+# 	        *"No such file"*)aFILE+=($i);;
+#         esac
+#         done
     
-    #Return IFS to original value.
-	IFS=$IFSOLD
+#     #Return IFS to original value.
+# 	IFS=$IFSOLD
     
-    #Empty ERRORLIST before returning to the script.
-    unset 'ERRORLIST[@]'
-    }
+#     #Empty ERRORLIST before returning to the script.
+#     unset 'ERRORLIST[@]'
+#     }
 	
 mySYSCHECK ()
 	{
@@ -621,17 +701,17 @@ mySYSCHECK ()
 		8) SYSTEM="Mountain Lion";;
 		9) SYSTEM=Mavericks;;
 	esac
-	myLOGGER "Currently running on MacOS X $(sw_vers -productVersion) $SYSTEM"
+	clogger.file -l "Currently running on MacOS X $(sw_vers -productVersion) $SYSTEM"
 	}
 
 myVERSREQ ()
 	{
 	if [[ "$sysCUR" != "${sysREQ[0]}" ]] && [[ "$sysCUR" != "${sysREQ[1]}" ]] && [[ "$sysCUR" != "${sysREQ[2]}" ]] && [[ "$sysCUR" != "${sysREQ[3]}" ]] && [[ "$sysCUR" != "${sysREQ[4]}" ]]; then
-		myLOGGER -t "This script requires 10.6 or newer"
-		myLOGGER -t "Current system is 10."$sysCUR
+		clogger.file -t "This script requires 10.6 or newer"
+		clogger.file -t "Current system is 10."$sysCUR
 		exit
 	else
-		myLOGGER "Supported OS."
+		clogger.file -l "Supported OS."
 	fi
 
 	}
@@ -651,12 +731,12 @@ myDMG ()
 	cdtarget=$(dirname $target)
 	cd $cdtarget
 	#Create the disk image
-	myLOGGER -t "Creating a disk image of $dmgsize GB labeled $dmgname"
+	clogger.file -t "Creating a disk image of $dmgsize GB labeled $dmgname"
 	hdiutil create -volname $dmgname -size $dmgsize -type SPARSEBUNDLE -fs HFS+ $dmgname
 	hdiutil mount $dmgname.sparseimage
 	target="/Volumes/$dmgname/"
 	sizeInitial=$(df "$target" | awk '!/Used/ {print $3}')
-    myLOGGER "Calculated size of data in [Target] directory $target."
+    clogger.file -l "Calculated size of data in [Target] directory $target."
 	}
 	
 isCOMPLETE ()
@@ -665,11 +745,9 @@ isCOMPLETE ()
         
     if [[ $percentCOMPLETE -ge 99 ]]; then
     	echo "Data copy completed successfully."
-    	dittoERR
     else
     	echo "Data copy exited early"
     	$percentCOMPLETE"% of data was copied"
-    	dittoERR
     fi
     }
     
@@ -688,23 +766,24 @@ source="$2"
 target="$3"
 echo $source $target
 
+cLOGGER #Initialize logging function and nested functions
 ############################################# GETOPTS #############################################
 ## Based on getopts tutorial found at http://wiki.bash-hackers.org/howto/getopts_tutorial
 ## Base use of getopts: while getopts "OPTSTRING" VARNAME;
 ## Check for no opts: if ( ! getopts "OPTSTRING" VARNAME ); Placed just prior to while getopts call
 # Check for valid -options being set. If no -options are specified, return usage to the user.
 if ( ! getopts "u48tevhd?" opt); then
-    myLOGGER "getopts [ERROR]:[EX-USAGE]:64 - No flags used. Printing usage message."
-    myLOGGER -t "Usage: `basename $0` options (-u48ted) (-v version) -h for help"
+    clogger.file -l "getopts [ERROR]:[EX-USAGE]:64 - No flags used. Printing usage message."
+    clogger.file -t "Usage: `basename $0` options (-u48ted) (-v version) -h for help"
     exit 64;
 fi
 
 
-myLOGGER "$0 $- $@"
+clogger.file -l "$0 $- $@"
 
 # Getopts is called to check which options are being specified. Appropriate variables are set for each option.
 
-myLOGGER "carbon called with $1 option(s)."
+clogger.file -l "carbon called with $1 option(s)."
 while getopts "u48tevhd" opt; do
 	case $opt in
 		u)	bus="USB"; type=.02857142857; typef=.08403361345; transrateL=12; transrateH=35;;
@@ -720,7 +799,7 @@ while getopts "u48tevhd" opt; do
 done
 
 ############################### DETERMINE AMOUNT OF DATA AND ETA #####################################
- myLOGGER "Transferring data over $bus."
+ clogger.file -l "Transferring data over $bus."
  diskSpace								
  transTimeRaw=$(echo "scale=9; (($sizeRAW*512)/1000000)*$typef" | bc) 
  myTime $transTimeRaw
@@ -772,11 +851,11 @@ COPIED=()
 for i in "${SOURCELIST[@]}"
 	do
 		echo "Copying $i"
-		myLOGGER "Copying $i"
+		clogger.file -l "Copying $i"
 		sudo ditto -V "$i" "$target$i" 2>>$clog &
-		myLOGGER "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
+		clogger.file -l "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
 		COPIED+=($i)
-        dittoERR $count
+        clogger.ditto $count
         
 		#sleep 4                                         # Pause the script for 4 seconds.
 		clear
@@ -829,11 +908,10 @@ for i in "${SOURCELIST[@]}"
 				# Display information on the current working directory/file and the most recent error.
 				
 				lastFILE="($(ls -A $i | tail -n 1))"
-                lastERRORDITTO=$(cat carbon.copy.log | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)' | tail -n 1)
 				echo "Currently copying items in: "$i
 				echo "Last item copied was: $lastFILE"
-                echo "Last error: $lastERROR"
-                echo "Last error from ditto: $lastERRORDITTO"
+                echo "Last file copy error: $lastFERROR"
+                echo "Last error from ditto: $lastERROR"
 				
 				copiedTEMP=$copiedRAW
         		# Script will now sleep for $refresh seconds. Default value of $refresh is 10.
@@ -853,7 +931,8 @@ for i in "${SOURCELIST[@]}"
 #		Transfer of data is completed.
 ####################################################################################################
 isCOMPLETE	
-dittoERROR	
+clogger.ditto $count
+clogger.ditto dump
 finish_time=$(date +%s)
 total_time=$(echo "scale=2; ($finish_time - $start_time)" | bc)
 transAVE=$(echo "scale=2; ((($sizeRAW*512)/1000000)/$total_time)" | bc)
