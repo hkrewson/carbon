@@ -5,6 +5,8 @@ Changelog
 #
 #
 #	carbon
+#   v20140914
+#   - Target checking is handled in one function. Code cleaning.
 #   v20140911
 #   - Error logging and parsing of log file from ditto is handled within the function cLOGGER
 #       using nested functions clogger.file and clogger.ditto respectively. This grouping of

@@ -3,6 +3,8 @@
 #
 #
 #	carbon
+#   v20140914
+#   - Target checking is handled in one function. Code cleaning.
 #   v20140911
 #   - Error logging and parsing of log file from ditto is handled within the function cLOGGER
 #       using nested functions clogger.file and clogger.ditto respectively. This grouping of
@@ -508,49 +510,49 @@ cLOGGER ()
         
     }
 
-targTEST ()
+target ()
     {
-    #Function verifies we are not creating a new location in the /Volumes director
-    tarTEST=$(echo $target | awk -F/ '{print $(NF-2)}')
-    if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]; then
-        clogger.file -t "targTEST [SUCCESS]:[TARGET]:0 Directory location is valid."
-    else
-        clogger.file -t "myTARGET error: Cannot create a new location in directory /Volumes."
-        clogger.file -l "targTEST [FAILURE]:[TARGET]:1 Directory location is invalid."
-        exit 1
-    fi
-    }
-    	
-myTARGET ()
-	{
-    if [[ -d "$target" ]]; then
-        clogger.file -l "myTARGET [CHECK]:[DIR]:0 directory exists. $target"
-    else
-    	targTEST
-        sudo mkdir "$target"
-        if [[ -d "$target" ]]; then
-        	clogger.file -l "Created target directory: $target"
+    target.VOLUMES ()
+        {
+        tarTEST=$(echo $target | awk -F/ '{print $(NF-2)}')
+    	if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]; then
+    	    return 0
         else
-        	clogger.file -t "myTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only."
-        	exit 73
+            clogger.file -t "target error: Cannot create a new location in directory /Volumes."
+            clogger.file -l "target [FAILURE]:[TARGET]:1 Directory location is invalid."
+            exit 1
         fi
+        }
+    
+    target.CHECK ()
+        {
+        #Function verifies we are not creating a new location in the /Volumes director
+        if [[ -d "$target" ]]; then
+            return 0
+        else
+            return 1
+        fi
+        }
+    
+    #Check target directories.    
+    if target.CHECK; then
+        #Target directory exists. 
+        clogger.file -l "target [CHECK]:[DIR]:0 directory exists. $target"
+        
+    elif target.VOLUMES; then
+        #Target does not exist, Location is valid.
+        clogger.file -t "target [SUCCESS]:[TARGET]:0 Directory location is valid."
+        
+        #Make our target directory AND print a log message. OR Location is read only AND exit with error.
+        sudo mkdir "$target" && clogger.file -l "Created target directory: $target" || clogger.file -t "myTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73
+        
     fi
-    #Below we use df and awk to extract used 512b blocks, this is innacurate
-    #thanks to either the journal or a difference between block sizes on the 
-    #device vs those used by HFS+ (512b vs 4096b)
-    #sizeInitial=$(df "$target" | awk '!/Used/ {print $3}')
-    #This innacuracy is emphasized by the following command:
-    #df / | awk 'FNR == 2 {print $2,"-"$4,"-"$3}' | bc
-    #which subtracts "used" and "available" blocks from total blocks.
-    #A calculation which results in 512000 (262.1MB) on my 3TB drive.
-    #The above sizeInitial results in 3911071072 (2.002468TB) on my drive vs.
-    #the correct size of 3911583072 (2.002730TB) verified in "Get Info"
-    #The more accurate method for attaining the amount of data on a drive is thus
-    #df / | awk 'FNR == 2 {print"("$2,"-"$4,")*512"}' | bc
-    # awk 'FNR == 2' prints from line 2 of the output. With proper formatting
-    #we send directly to bc to calculate.
+    
+    #target.MAIN
+    #Get size of data on target drive. 
     sizeInitial=$(df "$target" | awk 'FNR == 2 {print "("$2,"-"$4,")"}' | bc)
     clogger.file -l "myTARGET [CALC]:[SIZE]:0 Calculated size of data in [target]:[$target]. $sizeInitial"
+    
     #by having a starting value of data in our target directory, we can more accurately
     #determine how much of our data has been copied.
 	}
@@ -573,7 +575,7 @@ diskSpace ()
     	
     else
     	clogger.file -l "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myTARGET."
-    	myTARGET
+    	target
     fi
     ##### END CHECK TARGET #####    
     ##### HUMAN READABLE SIZE OF SOURCE #####
@@ -647,48 +649,7 @@ checkDIR ()
 	fi
 	}
 	
-# dittoERR ()
-#     {
-#     #Call passes in one variable. $1 is the iteration step number, subtracting 
-#     # 1 from this gives us the section of the log to parse.
-    
-#     #Save the current internal field seperator.
-#     IFSOLD=$IFS
-    
-#     #Set the internal field seperator to newline character.
-#     IFS=$'\n'
-    
-#     #Initialize some arrays.
-#     aERROR=()
-#     aFILE=()
-    
-#     #Get variables.
-#     COUNT=$1
-    
-    
-#     #Create a list of errors for this section.
-#     #ERRORLIST=($(cat carbon.copy.log | sed -n -e "/${SOURCELIST[$((x-1))]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
-#     ERRORLIST=($(cat carbon.copy.log | sed -n -e "/${SOURCELIST[$((COUNT-1))]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
 
-#     #Dump ERRORSLIST into an array
-#     for i in "${ERRORLIST[@]}"
-#         do
-#         case $i in
-#             "error")myLOGGER $i;aERROR+=($i) ;;
-# 	        *"Read-only"*)myLOGGER $i; aERROR+=($i);;
-# 	        *"Device not configured"*)myLOGGER $i; aERROR+=($i);;
-# 	        *"No space left"*)myLOGGER $i; aERROR+=($i);;
-# 	        *"No such file"*)aFILE+=($i);;
-#         esac
-#         done
-    
-#     #Return IFS to original value.
-# 	IFS=$IFSOLD
-    
-#     #Empty ERRORLIST before returning to the script.
-#     unset 'ERRORLIST[@]'
-#     }
-	
 mySYSCHECK ()
 	{
 	sysCUR=$(sw_vers -productVersion | awk -F. '{print $2}' | tr -d '\n')
@@ -723,7 +684,7 @@ float ()
 
 myDMG ()
 	{
-	targTEST
+	target.VOLUMES
 	#dmgsize converts sizeRAW into human readable GB, removes decimal, and adds 1GB for clearance.
 	dmgsize=$(echo $sizeRAW | awk '{print ($1 * 512) / 1000000000}' | awk '{printf "%.0f\n", $1}' | awk '{print ($1 + 1)}')
 	#dmgname equals the final section of $target, ie: /Volumes/Backup/backup would become dmgname=backup
