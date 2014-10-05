@@ -3,11 +3,15 @@
 #
 #
 #	carbon
+#   v20141004
+#   - cfINTERFACE resizes the terminal window and positions it in the top left corner of the 
+#       display. It then builds a simple textual interface. Function is added, but not yet
+#       implimented.
 #   v20140914
 #   - Target checking is handled in one function. Code cleaning.
 #   v20140911
-#   - Error logging and parsing of log file from ditto is handled within the function cLOGGER
-#       using nested functions clogger.file and clogger.ditto respectively. This grouping of
+#   - Error logging and parsing of log file from ditto is handled within the function cfLOGGER
+#       using nested functions cfLOGGER.file and cfLOGGER.ditto respectively. This grouping of
 #       functions is initialized during script startup. At this point, these functions should
 #       handle all the same error reporting and file logging. Log parsing should be much better.
 #   v20140908
@@ -68,18 +72,18 @@
 #	- Added a new log file for ditto background process. $clog=carbon.copy.log
 #	- Changed myTARGET test. If function is unable to create the directory, an error
 #		is reported that the drive is read-only.
-#	- Function isCOMPLETE generated an error in the calculation to determine if the copy
+#	- Function cfCOMPLETE generated an error in the calculation to determine if the copy
 #		is complete or not. percentCOMPLETE was scaled to a precision of 2, causing the if
 #		statement to always show that the copy exited early. Changed scale of precision to 0.
 #		This resolves the error since bc is required for any float calculations. if is
 #		changed to look for -ge 99 instead of -gt 99.
 #	- Realized that in a prior revision, I removed refresh. This also removed allocation of
-#		$source and $target. Added this back in just after running checkDIR.
-#	- dittoERROR has been added into the final report just after isCOMPLETE. This should 
+#		$source and $target. Added this back in just after running cfCHDIR.
+#	- dittoERROR has been added into the final report just after cfCOMPLETE. This should 
 #		report any error messages.
 #   v20120506
 #   - Removed refresh rate options as they are never used.
-#   - Created mySCALE function for code reuse.
+#   - Created cfSCALE function for code reuse.
 #   - Removed older entries from embeded changelog.
 #   v20120505
 #   - Added -t option to myLOGGER calls. Allows message to be displayed on screen and 
@@ -96,7 +100,7 @@
 #		fail to pass back to the parent for loop.
 #	- Since the while loop no longer tests runtime, we are commenting out. Runtime and 
 #		all calls to it will be removed in future versions.
-#	- Verified that $SECONDS can be passed to myTime function and provide proper results.
+#	- Verified that $SECONDS can be passed to cfTIME function and provide proper results.
 #	v20120421a
 #	- Remove ;;s from line 719 wich was causing the script to error.
 #	- Resolved array usage with ditto.
@@ -155,11 +159,11 @@
 #   - Realized the new runtime call would fail to execute properly if seconds contained 
 #       a 0. Altered the call to be -ge.
 #   v1.6.3
-#   - Modified myTime to account for hours as well as minutes and seconds
+#   - Modified cfTIME to account for hours as well as minutes and seconds
 #   - Added hours to output in order to make it easier to understand times.
 #	- Updated the manual to remove two flags no longer used (-k, -x)
 #	v1.6.2
-#	- Call to myHelp from getopts was broken at some point in the past. Fixed this.
+#	- Call to cfHELP from getopts was broken at some point in the past. Fixed this.
 #	v1.6.1
 #	- Changed the way it saves the log file from ditto. plus$start_time.log
 #	- Working on modification of time reporting.
@@ -194,7 +198,7 @@
 #		(/Macintosh HD/Volumes/). Rewrote the use of ditto to avoid copying all of the volumes
 #		connected. This is acheived by listing the contents of the source into an array (minus 
 #		Volumes), and the passing the contents of that array via xargs into ditto.
-#	- Added a new function pathString. pathString helps with the new use of ditto by checking
+#	- Added a new function cfPATH. cfPATH helps with the new use of ditto by checking
 #		the source and target variables for a trailing '/'. If none is found, one is appended.
 #	v1.4.5
 #	- Set a default for variable debugON in order to not have an error when that line is parsed.
@@ -251,7 +255,7 @@
 #	- While loop now tests based on scriptRUNTIME variable, and exits properly when complete.
 #	1.2.0
 #       - Rewrite of script to try to clean up the code. Variable names should better reflect 
-#           their purpose. New function myTime to handle decimal time and present it in a 
+#           their purpose. New function cfTIME to handle decimal time and present it in a 
 #           human readable format. Removed some deprecated commented code that may confuse someone
 #           reading through the script.
 #	- Removed bugs dealing with some of the variables and causing output of sizes to be incorrect.
@@ -268,7 +272,7 @@
 #           gigabytes of data are involved, and will cause a slow down of
 #           the refresh of information as well as the process of copying data.
 #       1.1.0 
-#       - Adjusted diskSpace if statement to correctly asses sizes
+#       - Adjusted cfDISKSPACE if statement to correctly asses sizes
 #       - Adjusted use of df to correctly grab drive size
 #       1.0.9
 #       - Added two temporary variables to allow us to compare the source location 
@@ -373,7 +377,7 @@ However, to work properly,
 .Xr rsync 1
 requires specific flags and setup. Admittedly, it does have some interesting features that may make it well suited to this task."
     }
-myHelp ()
+cfHELP ()
     {
 		echo ""
         echo "Usage: `basename $0` [ <options> ] source destination"
@@ -422,9 +426,9 @@ myHelp ()
     myLOGGER "Printed help message."
     }
 
-cLOGGER () 
+cfLOGGER () 
     {
-    clogger.file()
+    cfLOGGER.file()
         {
         #Logfile Date Stamp
         stamp=$(date +"[%m/%d/%y %H:%M:%S]")
@@ -439,13 +443,13 @@ cLOGGER ()
         done
         unset OPTIND
         }
-    clogger.ditto()
+    cfLOGGER.ditto()
         {
     #Call passes in one variable. $1 is the iteration step number, subtracting 
     # 1 from this gives us the section of the log to parse.
      if [[ $1 == "dump" ]]; then
-            clogger.file -e ${aERROR[$@]}
-            clogger.file -e ${aFILE[$@]}
+            cfLOGGER.file -e ${aERROR[$@]}
+            cfLOGGER.file -e ${aFILE[$@]}
     else
         #Save the current internal field seperator.
         IFSOLD=$IFS
@@ -470,15 +474,15 @@ cLOGGER ()
             for i in "${ERRORLIST[@]}"
                 do
                 case $i in
-                    "error")clogger.file -l $i;aERROR+=($i) ;;
-        	        *"Read-only"*)clogger.file -l $i; aERROR+=($i);;
-        	        *"Device not configured"*)clogger.file -l $i; aERROR+=($i);;
-        	        *"No space left"*)clogger.file -l $i; aERROR+=($i);;
+                    "error")cfLOGGER.file -l $i;aERROR+=($i) ;;
+        	        *"Read-only"*)cfLOGGER.file -l $i; aERROR+=($i);;
+        	        *"Device not configured"*)cfLOGGER.file -l $i; aERROR+=($i);;
+        	        *"No space left"*)cfLOGGER.file -l $i; aERROR+=($i);;
         	        *"No such file"*)aFILE+=($i);;
                 esac
                 done
         
-        	clogger.file -l "[.ditto]: >>> Copying ${SOURCELIST[$((COUNT-1))]}"  
+        	cfLOGGER.file -l "[.ditto]: >>> Copying ${SOURCELIST[$((COUNT-1))]}"  
         	lastERROR=$(echo ${aERROR[@]} | tail -n 1)
         	lastFERROR=$(echo ${aFILE[@]} | tail -n 1)
         	
@@ -499,32 +503,32 @@ cLOGGER ()
     #Empty ERRORLIST before returning to the script.
     unset 'ERRORLIST[@]'    
         }
-    #if statement only used if calling as cLOGGER [file | ditto] $option
+    #if statement only used if calling as cfLOGGER [file | ditto] $option
     if [[ $1 == "file" ]]; then
         shift
-        clogger.file "$@"
+        cfLOGGER.file "$@"
     elif [[ $1 == "ditto" ]]; then 
         shift
-        clogger.ditto "$*"
+        cfLOGGER.ditto "$*"
     fi
         
     }
 
-target ()
+cfTARGET ()
     {
-    target.VOLUMES ()
+    cfTARGET.VOLUMES ()
         {
         tarTEST=$(echo $target | awk -F/ '{print $(NF-2)}')
     	if [[ -d $(dirname "$target") ]] && [[ "$tarTEST" != "Volumes" ]]; then
     	    return 0
         else
-            clogger.file -t "target error: Cannot create a new location in directory /Volumes."
-            clogger.file -l "target [FAILURE]:[TARGET]:1 Directory location is invalid."
+            cfLOGGER.file -t "cfTARGET error: Cannot create a new location in directory /Volumes."
+            cfLOGGER.file -l "cfTARGET [FAILURE]:[TARGET]:1 Directory location is invalid."
             exit 1
         fi
         }
     
-    target.CHECK ()
+    cfTARGET.CHECK ()
         {
         #Function verifies we are not creating a new location in the /Volumes director
         if [[ -d "$target" ]]; then
@@ -535,87 +539,87 @@ target ()
         }
     
     #Check target directories.    
-    if target.CHECK; then
+    if cfTARGET.CHECK; then
         #Target directory exists. 
-        clogger.file -l "target [CHECK]:[DIR]:0 directory exists. $target"
+        cfLOGGER.file -l "cfTARGET [CHECK]:[DIR]:0 directory exists. $target"
         
-    elif target.VOLUMES; then
+    elif cfTARGET.VOLUMES; then
         #Target does not exist, Location is valid.
-        clogger.file -t "target [SUCCESS]:[TARGET]:0 Directory location is valid."
+        cfLOGGER.file -t "cfTARGET [SUCCESS]:[TARGET]:0 Directory location is valid."
         
         #Make our target directory AND print a log message. OR Location is read only AND exit with error.
-        sudo mkdir "$target" && clogger.file -l "Created target directory: $target" || clogger.file -t "myTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73
+        sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target" || cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73
         
     fi
     
-    #target.MAIN
+    #cfTARGET.MAIN
     #Get size of data on target drive. 
     sizeInitial=$(df "$target" | awk 'FNR == 2 {print "("$2,"-"$4,")"}' | bc)
-    clogger.file -l "myTARGET [CALC]:[SIZE]:0 Calculated size of data in [target]:[$target]. $sizeInitial"
+    cfLOGGER.file -l "cfTARGET [CALC]:[SIZE]:0 Calculated size of data in [target]:[$target]. $sizeInitial"
     
     #by having a starting value of data in our target directory, we can more accurately
     #determine how much of our data has been copied.
 	}
 	
-diskSpace ()
+cfDISKSPACE ()
     {
-    clogger.file -l "---------------Function diskSpace--------------"
+    cfLOGGER.file -l "---------------Function cfDISKSPACE--------------"
     clear                                                                             
     ##### CHECK SOURCE #####
-    pathString "$source" source                                                             #Ensure path has a trailing /
-    pathString "$target" target                                                             #Ensure path has a trailing /
-    clogger.file -t "Calculating size of data to be copied using command du. This will take some time, please be patient."
+    cfPATH "$source" source                                                             #Ensure path has a trailing /
+    cfPATH "$target" target                                                             #Ensure path has a trailing /
+    cfLOGGER.file -t "Calculating size of data to be copied using command du. This will take some time, please be patient."
     sizeRAW=$(du -sPx "$source" | awk '{print $1}')                                         #sizeRAW is used for calculations
-    clogger.file -l "diskSpace [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
+    cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
     ##### END CHECK SOURCE #####  
     ##### CHECK TARGET #####   
-    if [ $mydmg -eq 1 ]; then
-    	clogger.file -l "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myDMG."
-    	myDMG
+    if [ $cfDMG -eq 1 ]; then
+    	cfLOGGER.file -l "cfDISKSPACE [FUNC]:[CALL-FUNCTION]:0 Run function cfDMG."
+    	cfDMG
     	
     else
-    	clogger.file -l "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function myTARGET."
-    	target
+    	cfLOGGER.file -l "cfDISKSPACE [FUNC]:[CALL-FUNCTION]:0 Run function cfTARGET."
+    	cfTARGET
     fi
-    ##### END CHECK TARGET #####    
+    ##### END CHECK cfTARGET #####    
     ##### HUMAN READABLE SIZE OF SOURCE #####
-    clogger.file -l "diskSpace [FUNC]:[CALL-FUNCTION]:0 Run function mySCALE on raw size [source]:[$source] $sizeRAW."
-    mySCALE $sizeRAW
+    cfLOGGER.file -l "cfDISKSPACE [FUNC]:[CALL-FUNCTION]:0 Run function cfSCALE on raw size [source]:[$source] $sizeRAW."
+    cfSCALE $sizeRAW
     sizeHUMAN=$(echo "scale=2; ($sizeRAW*512)/$sdiv" | bc)$sunit                            #Calculate size
-    clogger.file -l "diskSpace [CALC]:[SIZE]:0 Calculated size of source in human readable format. $sizeHUMAN"
+    cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated size of source in human readable format. $sizeHUMAN"
     ##### END HUMAN READABLE SIZE #####
-    clogger.file -l "---------------End Function diskSpace--------------"
+    cfLOGGER.file -l "---------------End Function cfDISKSPACE--------------"
     }
 
-mySCALE ()
+cfSCALE ()
     {
         if [ $1 -lt 1757813 ]; then                                                       #Is size below MB threshhold 
         sdiv=1000000 sunit=M                                                                #Size is in MB
-    	clogger.file -l "Size calculation in MB."
+    	cfLOGGER.file -l "Size calculation in MB."
     else
         sdiv=1000000000 sunit=G                                                             #Size is in GB
-    	clogger.file -l "Size calculation in GB."
+    	cfLOGGER.file -l "Size calculation in GB."
     fi
     }
     
-myVersion ()                                                    						#Function to provide version of carbon
+cfVERSION ()                                                    						#Function to provide version of carbon
     {
-    clogger.file -t "carbon $version"
+    cfLOGGER.file -t "carbon $version"
     exit
     }
     
-myTime ()                                                       						#Calculate times from decimal values
+cfTIME ()                                                       						#Calculate times from decimal values
     {
-    clogger.file -l "--------------Function myTime.--------------"
+    cfLOGGER.file -l "--------------Function cfTIME.--------------"
     time=$(echo "scale=9; $1/60/60" | bc)
-    clogger.file -l "Calculate $time ."
+    cfLOGGER.file -l "Calculate $time ."
     timeHours=$(echo ${time%.*})
     if [[ $timeHours -gt 0 ]]; then
         echo ""
-        clogger.file -l "Time is in hours minutes and seconds. $timeHours"
+        cfLOGGER.file -l "Time is in hours minutes and seconds. $timeHours"
     else
         timeHours=0
-        clogger.file -l "Time is in minutes and seconds."
+        cfLOGGER.file -l "Time is in minutes and seconds."
     fi
     timeMinutes=$(echo "scale=0; (${time#*.}*60/1000000000)" | bc)
     timeMinutesP=$(echo "scale=4; (${time#*.}*60/1000000000)" | bc)
@@ -625,12 +629,12 @@ myTime ()                                                       						#Calculate
     #time=$(date -u -r $1 +%T)
     #which will output hours minutes and seconds in the format 00:00:00
     #Requires that input be an integer value (scale=0)
-    clogger.file -l "------------End Function myTime-------------"
+    cfLOGGER.file -l "------------End Function cfTIME-------------"
     }
 
-pathString ()
+cfPATH ()
     {
-        #  pathString checks to see if there is a trailing / character in the path arguments
+        #  cfPATH checks to see if there is a trailing / character in the path arguments
         #+ if there is not, one is added. 
     if	[[ $1 != */ ]]; then
         eval "$2='$1'/"
@@ -639,18 +643,18 @@ pathString ()
     fi
     }
     
-checkDIR ()
+cfCHDIR ()
 	{
-		# checkDIR looks for a file in the directory plus is run from. If a file named '0'
+		# cfCHDIR looks for a file in the directory plus is run from. If a file named '0'
 		#+ is found, the script attempts to remove it prior to continuing.
 	if [ -e ./0 ]; then
-		clogger.file -l "checkDIR [SUCCESS]:[ZFILE] Zero byte file located."
-		sudo rm ./0 && clogger.file -l "checkDIR [SUCCESS]:[ZFILE] Zero byte file removed."
+		cfLOGGER.file -l "cfCHDIR [SUCCESS]:[ZFILE] Zero byte file located."
+		sudo rm ./0 && cfLOGGER.file -l "cfCHDIR [SUCCESS]:[ZFILE] Zero byte file removed."
 	fi
 	}
 	
 
-mySYSCHECK ()
+cfSYSCHECK ()
 	{
 	sysCUR=$(sw_vers -productVersion | awk -F. '{print $2}' | tr -d '\n')
 	case $sysCUR in
@@ -662,17 +666,17 @@ mySYSCHECK ()
 		8) SYSTEM="Mountain Lion";;
 		9) SYSTEM=Mavericks;;
 	esac
-	clogger.file -l "Currently running on MacOS X $(sw_vers -productVersion) $SYSTEM"
+	cfLOGGER.file -l "Currently running on MacOS X $(sw_vers -productVersion) $SYSTEM"
 	}
 
-myVERSREQ ()
+cfVERSREQ ()
 	{
 	if [[ "$sysCUR" != "${sysREQ[0]}" ]] && [[ "$sysCUR" != "${sysREQ[1]}" ]] && [[ "$sysCUR" != "${sysREQ[2]}" ]] && [[ "$sysCUR" != "${sysREQ[3]}" ]] && [[ "$sysCUR" != "${sysREQ[4]}" ]]; then
-		clogger.file -t "This script requires 10.6 or newer"
-		clogger.file -t "Current system is 10."$sysCUR
+		cfLOGGER.file -t "This script requires 10.6 or newer"
+		cfLOGGER.file -t "Current system is 10."$sysCUR
 		exit
 	else
-		clogger.file -l "Supported OS."
+		cfLOGGER.file -l "Supported OS."
 	fi
 
 	}
@@ -682,9 +686,9 @@ float ()
     printf "%.0f\n" "$@"
     }
 
-myDMG ()
+cfDMG ()
 	{
-	target.VOLUMES
+	cfTARGET.VOLUMES
 	#dmgsize converts sizeRAW into human readable GB, removes decimal, and adds 1GB for clearance.
 	dmgsize=$(echo $sizeRAW | awk '{print ($1 * 512) / 1000000000}' | awk '{printf "%.0f\n", $1}' | awk '{print ($1 + 1)}')
 	#dmgname equals the final section of $target, ie: /Volumes/Backup/backup would become dmgname=backup
@@ -692,15 +696,15 @@ myDMG ()
 	cdtarget=$(dirname $target)
 	cd $cdtarget
 	#Create the disk image
-	clogger.file -t "Creating a disk image of $dmgsize GB labeled $dmgname"
+	cfLOGGER.file -t "Creating a disk image of $dmgsize GB labeled $dmgname"
 	hdiutil create -volname $dmgname -size $dmgsize -type SPARSEBUNDLE -fs HFS+ $dmgname
 	hdiutil mount $dmgname.sparseimage
 	target="/Volumes/$dmgname/"
 	sizeInitial=$(df "$target" | awk '!/Used/ {print $3}')
-    clogger.file -l "Calculated size of data in [Target] directory $target."
+    cfLOGGER.file -l "Calculated size of data in [Target] directory $target."
 	}
 	
-isCOMPLETE ()
+cfCOMPLETE ()
     {
     percentCOMPLETE=$(echo "scale=0; ($copiedRAW/$sizeRAW)*100" | bc)
         
@@ -712,39 +716,74 @@ isCOMPLETE ()
     fi
     }
     
-runtime ()
+cfRUNTIME()
     {
     scriptRUNTIME=$(ps -ceo uid,pid,etime | grep $! | awk '{print $3}')
     }
 
-##################################################################################################
+cfINTERFACE ()
+    {
+    
+        #http://apple.stackexchange.com/questions/33736/can-a-terminal-window-be-resized-with-a-terminal-command
+        #Set width of window to 80 columns, height to 50 rows
+        printf '\e[8;15;94t'    
+        #Move the window to the top left corner of the display.
+        printf '\e[3;0;0t'
+        width=$(tput cols)
+        
+        #Clear the screen
+        clear
+        
+        #Set 
+        #                              1         2         3         4         5         6         7         8         9
+        #tput cup linup --   0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123
+        #                    TIME: HH:MM:SS AM                                                               MM/DD/YYYY
+         tput cup 0 0; echo "$(date +"TIME: %r                                                                   %m/%d/%Y")"
+         tput cup 1 0; echo "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+         tput cup 2 0; echo "| Original ETC | ETC Current  |  Elapsed Time  |            DATA             | Transfer Rate |"
+         tput cup 3 0; echo "|  (HH:MM:SS)  |  (HH:MM:SS)  |   (HH:MM:SS)   |   %   | (Copied) | (Remain) | Expect | Last |"
+         tput cup 4 0; echo "|==============|==============|================|=======|==========|==========|========|======|"
+         tput cup 5 0; echo "|              |              |                |       |          |          |        |      |"
+         tput cup 6 0; echo "|______________|______________|________________|_______|__________|__________|________|______|"
+         tput cup 7 0; echo "|=============================|==============================================================|"
+         tput cup 8 0; echo "| Currently copying in folder :                                                              |"
+         tput cup 9 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 10 0; echo "|            Last file copied :                                                              |"
+        tput cup 11 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 12 0; echo "|        Last file copy ERROR :                                                              |"
+        tput cup 13 0; echo "|-----------------------------|--------------------------------------------------------------|"
+    }
+
+####################################### SCRIPT INITIALIZATION #####################################
 touch "$log"                                  				#Create a log file if it does not exist
 touch "$elog"						   									
 
-checkDIR													   		#Check current directory for 0
+cfCHDIR													   		#Check current directory for 0
 
 source="$2"
 target="$3"
 echo $source $target
 
-cLOGGER #Initialize logging function and nested functions
+################################### INITIALIZE NESTED FUNCTIONS ###################################
+cfLOGGER 
+  
 ############################################# GETOPTS #############################################
 ## Based on getopts tutorial found at http://wiki.bash-hackers.org/howto/getopts_tutorial
 ## Base use of getopts: while getopts "OPTSTRING" VARNAME;
 ## Check for no opts: if ( ! getopts "OPTSTRING" VARNAME ); Placed just prior to while getopts call
 # Check for valid -options being set. If no -options are specified, return usage to the user.
 if ( ! getopts "u48tevhd?" opt); then
-    clogger.file -l "getopts [ERROR]:[EX-USAGE]:64 - No flags used. Printing usage message."
-    clogger.file -t "Usage: `basename $0` options (-u48ted) (-v version) -h for help"
+    cfLOGGER.file -l "getopts [ERROR]:[EX-USAGE]:64 - No flags used. Printing usage message."
+    cfLOGGER.file -t "Usage: `basename $0` options (-u48ted) (-v version) -h for help"
     exit 64;
 fi
 
 
-clogger.file -l "$0 $- $@"
+cfLOGGER.file -l "$0 $- $@"
 
 # Getopts is called to check which options are being specified. Appropriate variables are set for each option.
 
-clogger.file -l "carbon called with $1 option(s)."
+cfLOGGER.file -l "carbon called with $1 option(s)."
 while getopts "u48tevhd" opt; do
 	case $opt in
 		u)	bus="USB"; type=.02857142857; typef=.08403361345; transrateL=12; transrateH=35;;
@@ -752,25 +791,25 @@ while getopts "u48tevhd" opt; do
 		8)	bus="FW 800"; type=.01904761905; typef=.05714285714; transrateL=18; transrateH=53;;
 		t)	bus="Thunderbolt";  type=.01041666667; typef=.03090234858; transrateL=32; transrateH=96;;
 		e)	bus="Ethernet"; type=.01904761905; typef=.05714285714; transrateL=18; transrateH=53;;
-		v)  myVersion;;											
-		h)	myHelp | less; exit 0;;	
-		d)  mydmg=1;;
+		v)  cfVERSION;;											
+		h)	cfHELP | less; exit 0;;	
+		d)  cfDMG=1;;
 		?)  why | nroff -msafer -mandoc; exit 0;;
 	esac
 done
 
 ############################### DETERMINE AMOUNT OF DATA AND ETA #####################################
- clogger.file -l "Transferring data over $bus."
- diskSpace								
+ cfLOGGER.file -l "Transferring data over $bus."
+ cfDISKSPACE								
  transTimeRaw=$(echo "scale=9; (($sizeRAW*512)/1000000)*$typef" | bc) 
- myTime $transTimeRaw
+ cfTIME $transTimeRaw
  echo "We are about to copy" $sizeHUMAN"B of data."
  etaO="$timeHours Hours $timeMinutes Minutes $timeSeconds Seconds"
  echo "Transfer via $bus will take a minimum of" $timeHours" hours, "$timeMinutes" minutes, "$timeSeconds" seconds."
  echo "Transfer time estimate assumes drive is corrupted or failing."
 ######################################### DITTO PREFLIGHT ##########################################
-mySYSCHECK
-myVERSREQ
+cfSYSCHECK
+cfVERSREQ
 start_time=$(date +%s)                                  #Grab the current system time
 cd "$source"
 IFSTMP=$IFS
@@ -812,16 +851,16 @@ COPIED=()
 for i in "${SOURCELIST[@]}"
 	do
 		echo "Copying $i"
-		clogger.file -l "Copying $i"
+		cfLOGGER.file -l "Copying $i"
 		sudo ditto -V "$i" "$target$i" 2>>$clog &
-		clogger.file -l "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
+		cfLOGGER.file -l "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
 		COPIED+=($i)
-        clogger.ditto $count
+        cfLOGGER.ditto $count
         
 		#sleep 4                                         # Pause the script for 4 seconds.
 		clear
 
-		runtime
+		cfRUNTIME
 
 
 		while [ -n "$scriptRUNTIME" ]
@@ -833,7 +872,7 @@ for i in "${SOURCELIST[@]}"
 				
         		###### IF Statement Begins #####
         		#+determines the scale of the data copied and presents it in human readable form
-        	    mySCALE $copiedRAW
+        	    cfSCALE $copiedRAW
         		copiedHUMAN=$(echo "scale=2; ($copiedRAW*512)/$sdiv" | bc)$sunit
         		echo $copiedHUMAN " copied."
         		# END of if statement
@@ -845,7 +884,7 @@ for i in "${SOURCELIST[@]}"
         		###### IF Statement Begins #####
         		# Calculate and present the amount of data remaining to be copied
         		remaining=$((sizeRAW-copiedRAW))
-        		mySCALE $remaining
+        		cfSCALE $remaining
 				remainingHUMAN=$(echo "scale=2; ($remaining*512)/$sdiv" | bc)$sunit
 				echo "Remaining to copy:" $remainingHUMAN
 				# END of if statement
@@ -858,11 +897,11 @@ for i in "${SOURCELIST[@]}"
 				
 				# Calculate the amount of time remaining
 				timeLEFT=$(echo "scale=2; (($remaining*512)/1000000)*$typef" | bc)
-				myTime $timeLEFT
+				cfTIME $timeLEFT
 				etaCurrent="$timeHours Hours $timeMinutes Minutes $timeSeconds Seconds"
 				echo "Original ETA:" $etaO
 				echo " Current ETA:" $etaCurrent
-        		myTime $SECONDS
+        		cfTIME $SECONDS
         		echo "Elapsed time: $timeHours Hours $timeMinutes Minutes $timeSeconds Seconds"
 				
 				
@@ -878,7 +917,7 @@ for i in "${SOURCELIST[@]}"
         		# Script will now sleep for $refresh seconds. Default value of $refresh is 10.
         		sleep $refresh
         		clear
-        		runtime
+        		cfRUNTIME
             done		
         ((count += 1))
     done
@@ -891,14 +930,14 @@ for i in "${SOURCELIST[@]}"
 #		Original ETA:
 #		Transfer of data is completed.
 ####################################################################################################
-isCOMPLETE	
-clogger.ditto $count
-clogger.ditto dump
+cfCOMPLETE	
+cfLOGGER.ditto $count
+cfLOGGER.ditto dump
 finish_time=$(date +%s)
 total_time=$(echo "scale=2; ($finish_time - $start_time)" | bc)
 transAVE=$(echo "scale=2; ((($sizeRAW*512)/1000000)/$total_time)" | bc)
 echo "Average transfer rate of "$transAVE "MB per second."
-myTime $total_time
+cfTIME $total_time
 echo "Total time to transfer data: $timeHours hours, $timeMinutes minutes, $timeSeconds secs." 
 echo "Original ETA:" $etaO   
 echo "Transfer of data is completed."				# Script has completed.
