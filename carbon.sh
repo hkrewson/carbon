@@ -532,7 +532,7 @@ cfTARGET ()
         cfLOGGER.file -t "cfTARGET [SUCCESS]:[TARGET]:0 Directory location is valid."
         
         #Make our target directory AND print a log message. OR Location is read only AND exit with error.
-        sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target" || cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73
+        sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target" #|| cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73
         
     fi
     
