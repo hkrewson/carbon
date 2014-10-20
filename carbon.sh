@@ -3,6 +3,15 @@
 #
 #
 #	carbon
+#   v20141015
+#   - cfINTERFACE edited to have a beggining, middle and end interface.
+#   - sizeRAW calculation updated. Prints top-level directory to cfINTERFACE.open
+#       position 8.32 as du is calculating. See the below forum post.
+#   http://www.unix.com/shell-programming-and-scripting/251905-tee-multiple-streams-create-var.html#post302921182
+#   
+#   v20141005
+#   - cfINTERFACE Changed 1st line for end user readability, and to better indicate our
+#       (E)stimated (D)ate of (C)ompletion. Function integration is in progress.
 #   v20141004
 #   - cfINTERFACE resizes the terminal window and positions it in the top left corner of the 
 #       display. It then builds a simple textual interface. Function is added, but not yet
@@ -335,12 +344,7 @@
 #		TB  transfer of 9GB took approx 1:33 m (1GB per 10.3s, 96MB/s, .01041666667s/MB)
 #			Corrupted transfer estimate is 3* or 1GB per 30.9s, 32.36MB/s, .03090234858s/MB
 #
-################################ use of tput cup ##########################################
-#       tput cup 0 0
-#            Send the sequence to move the cursor to row 0, column 0 (the upper
-#            left  corner  of  the  screen,  usually known as the "home" cursor
-#            position).
-##### HEADER ENDS #####
+##################################### HEADER ENDS ############################################
 
 ###################################### GLOBAL VARIABLES ######################################
 version="20140807b"                                             
@@ -351,32 +355,20 @@ debugON=0
 sysREQ=(5 6 7 8 9)
 SYSTEM=$(sw_vers -productVersion | awk -F. '{print $2}')
 copiedTEMP=0
-log=~/Library/Logs/carbon.current.log
-clog=~/Library/Logs/carbon.copy.log
-elog=~/Library/Logs/carbon.error.log
 stamp=$(date +"%D %T")
 today=$(date +"%m_%d_%Y")
+mkdir ~/Library/Logs/Carbon/$today
+log=~/Library/Logs/Carbon/$today/message.log
+clog=~/Library/Logs/Carbon/$today/copy.log
+elog=~/Library/Logs/Carbon/$today/error.log
 ####################################### SET DEBUG TRUE #######################################
 # Enables debug mode in bash for this script and writes all debug related output to a file
 #on the current user's desktop. File is labled 'DEBUG' with today's date.
 export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
-exec 2>~/Desktop/DEBUG$today
+exec 2>~/Library/Logs/Carbon/$today/debug.log
 set -x
 ########################################### FUNCTIONS ###########################################
-why ()
-    {
-        echo "Why use the command known as
-.Xr ditto 1?
-The best thing about this command is that it will work hard to read any file it comes across. If 
-.Xr ditto 1
-cannot read the file, it will log an error and move to the next file. Additionally, 
-.Xr ditto 1
-will also copy all associated data and meta data, including file permissions and ownership without the need to explicitly tell it to do so. Other commands with the appropriate flags will behave much the same, such as the utility
-.Xr rsync 1.
-However, to work properly,
-.Xr rsync 1
-requires specific flags and setup. Admittedly, it does have some interesting features that may make it well suited to this task."
-    }
+
 cfHELP ()
     {
 		echo ""
@@ -438,11 +430,12 @@ cfLOGGER ()
             case "${opt}" in
                 l)  shift; echo $stamp "$*" >> $log;;
                 e)  shift; echo $stamp "$*" >> $elog;;
-                t) shift; echo $stamp "$*" | tee -a $log;;
+                t) shift; echo $stamp "$*" | tee -a $log >(tput cup 12 31; echo "$*") >/dev/null;;
             esac
         done
         unset OPTIND
         }
+        
     cfLOGGER.ditto()
         {
     #Call passes in one variable. $1 is the iteration step number, subtracting 
@@ -483,18 +476,9 @@ cfLOGGER ()
                 done
         
         	cfLOGGER.file -l "[.ditto]: >>> Copying ${SOURCELIST[$((COUNT-1))]}"  
-        	lastERROR=$(echo ${aERROR[@]} | tail -n 1)
-        	lastFERROR=$(echo ${aFILE[@]} | tail -n 1)
+        	lastERROR=$(echo ${aERROR[@]} | tail -n 1) && tput cup 12 31; echo $lastERROR
+        	lastFERROR=$(echo ${aFILE[@]} | tail -n 1) && tput cup 10 31; echo $lastFERROR
         	
-            for i in "${aFILE[@]}"
-            	do
-                    echo $i
-            	done
-            
-            for i in "${aERROR[@]}"
-            	do
-                    echo $i
-            	done
         fi
     fi
     #Return IFS to original value.
@@ -568,8 +552,8 @@ cfDISKSPACE ()
     ##### CHECK SOURCE #####
     cfPATH "$source" source                                                             #Ensure path has a trailing /
     cfPATH "$target" target                                                             #Ensure path has a trailing /
-    cfLOGGER.file -t "Calculating size of data to be copied using command du. This will take some time, please be patient."
-    sizeRAW=$(du -sPx "$source" | awk '{print $1}')                                         #sizeRAW is used for calculations
+    cfLOGGER.file -l "Calculating size of data to be copied using command du. This will take some time, please be patient."
+    sizeRAW=$(du -a ./ | awk -v C=$(tput cup 8 32) -F'[/\t]' '{printf("\rChecking %60s", $3) >"/dev/stderr" } END{print "" > "/dev/stderr";printf $1}')                                        #sizeRAW is used for calculations
     cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
     ##### END CHECK SOURCE #####  
     ##### CHECK TARGET #####   
@@ -610,26 +594,18 @@ cfVERSION ()                                                    						#Function 
     
 cfTIME ()                                                       						#Calculate times from decimal values
     {
-    cfLOGGER.file -l "--------------Function cfTIME.--------------"
-    time=$(echo "scale=9; $1/60/60" | bc)
-    cfLOGGER.file -l "Calculate $time ."
-    timeHours=$(echo ${time%.*})
-    if [[ $timeHours -gt 0 ]]; then
-        echo ""
-        cfLOGGER.file -l "Time is in hours minutes and seconds. $timeHours"
-    else
-        timeHours=0
-        cfLOGGER.file -l "Time is in minutes and seconds."
-    fi
-    timeMinutes=$(echo "scale=0; (${time#*.}*60/1000000000)" | bc)
-    timeMinutesP=$(echo "scale=4; (${time#*.}*60/1000000000)" | bc)
-    timeSeconds=$(echo "scale=0; (${timeMinutesP#*.}*60/10000)" | bc)
-    
-    #Alternately
-    #time=$(date -u -r $1 +%T)
-    #which will output hours minutes and seconds in the format 00:00:00
-    #Requires that input be an integer value (scale=0)
-    cfLOGGER.file -l "------------End Function cfTIME-------------"
+        cfTIME.date ()
+        {
+            dateTime=$(date -v +"$1"S) 
+            tput cup 0 66; echo $dateTime
+            cfLOGGER.file -l "cfTIME [DATE]:Estimated Date of Completion: $dateTime"
+        }
+        
+        cfTIME.time ()
+        {
+            time=$(date -v +"$1"S +%T)  
+            cfLOGGER.file -l "cfTIME [TIME]:(E)stimated (T)ime to (C)ompletion: $time ."
+        }
     }
 
 cfPATH ()
@@ -709,10 +685,11 @@ cfCOMPLETE ()
     percentCOMPLETE=$(echo "scale=0; ($copiedRAW/$sizeRAW)*100" | bc)
         
     if [[ $percentCOMPLETE -ge 99 ]]; then
-    	echo "Data copy completed successfully."
+    	tput cup 8 31; echo "Data copy completed successfully."
+    	tput cup 5 49; echo $percentCOMPLETE"%"
     else
-    	echo "Data copy exited early"
-    	$percentCOMPLETE"% of data was copied"
+    	tput cup 8 31; echo "Data copy exited early"
+    	tput cup 5 49; echo $percentCOMPLETE"%"
     fi
     }
     
@@ -726,7 +703,7 @@ cfINTERFACE ()
     
         #http://apple.stackexchange.com/questions/33736/can-a-terminal-window-be-resized-with-a-terminal-command
         #Set width of window to 80 columns, height to 50 rows
-        printf '\e[8;15;94t'    
+        printf '\e[8;18;94t'    
         #Move the window to the top left corner of the display.
         printf '\e[3;0;0t'
         width=$(tput cols)
@@ -734,11 +711,36 @@ cfINTERFACE ()
         #Clear the screen
         clear
         
-        #Set 
-        #                              1         2         3         4         5         6         7         8         9
+    cfINTERFACE.start ()
+        {
         #tput cup linup --   0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123
-        #                    TIME: HH:MM:SS AM                                                               MM/DD/YYYY
-         tput cup 0 0; echo "$(date +"TIME: %r                                                                   %m/%d/%Y")"
+        #                    Ddd Mmm D HH:MM:SS ZON YYYY
+         tput cup 0 0; echo "$(date)"
+         tput cup 1 0; echo "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+         tput cup 2 0; echo "| Original ETC | ETC Current  |  Elapsed Time  |            DATA             | Transfer Rate |"
+         tput cup 3 0; echo "|  (HH:MM:SS)  |  (HH:MM:SS)  |   (HH:MM:SS)   |   %   | (Copied) | (Remain) | Expect | Last |"
+         tput cup 4 0; echo "|==============|==============|================|=======|==========|==========|========|======|"
+         tput cup 5 0; echo "| Calculating  | Calculating  |  Calculating   |   0   |    0     |    0     |   0    |   0  |"
+         tput cup 6 0; echo "|______________|______________|________________|_______|__________|__________|________|______|"
+         tput cup 7 0; echo "|=============================|==============================================================|"
+         tput cup 8 0; echo "|  Calculating size of folder :                                                              |"
+         tput cup 9 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 10 0; echo ""
+        tput cup 11 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 12 0; echo "|                             |                                                              |"
+        tput cup 13 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 14 0; echo "|                             |                                                              |"
+        tput cup 15 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 16 0; echo "|                             |                                                              |"
+        tput cup 17 0; echo "|-----------------------------|--------------------------------------------------------------|"    
+        }
+        
+    cfINTERFACE.run ()
+        {
+        
+        #tput cup linup --   0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123
+        #                    Ddd Mmm D HH:MM:SS ZON YYYY                                  EDC: Tue Oct  7 05:00:59 CDT 2014
+         tput cup 0 0; echo "$(date)                                 EDC: "
          tput cup 1 0; echo "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
          tput cup 2 0; echo "| Original ETC | ETC Current  |  Elapsed Time  |            DATA             | Transfer Rate |"
          tput cup 3 0; echo "|  (HH:MM:SS)  |  (HH:MM:SS)  |   (HH:MM:SS)   |   %   | (Copied) | (Remain) | Expect | Last |"
@@ -752,21 +754,50 @@ cfINTERFACE ()
         tput cup 11 0; echo "|-----------------------------|--------------------------------------------------------------|"
         tput cup 12 0; echo "|        Last file copy ERROR :                                                              |"
         tput cup 13 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 14 0; echo "|           Transferring from :                                                              |"
+        tput cup 15 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 16 0; echo "|             Transferring to :                                                              |"
+        tput cup 17 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        }
+    
+    cfINTERFACE.close ()
+        {
+        tput cup 0 0; echo "| Elapsed Time | Time Completed |    Average    |             DATA              |"
+        tput cup 1 0; echo "|  (HH:MM:SS)  |   (HH:MM:SS)   | Transfer Rate |   %   | (Original) | (Backup) |"
+        tput cup 2 0; echo "|==============|================|===============|=======|============|==========|"
+        tput cup 3 0; echo "|              |                |               |       |            |          |"
+        tput cup 4 0; echo "|______________|________________|_______________|_______|____________|__________|"
+        tput cup 5 0; echo "|           |    Copy Log : ~/Library/Logs/Carbon/$today/copy.log             |"
+        tput cup 6 0; echo "| Log Files |   Debug Log : ~/Library/Logs/Carbon/$today/debug.log            |"
+        tput cup 7 0; echo "|           | Message Log : ~/Library/Logs/Carbon/$today/message.log          |"
+        tput cup 8 0; echo "|           |   Error Log : ~/Library/Logs/Carbon/$today/error.log            |"
+        tput cup 9 0; echo "|===========|===================================================================|"  
+        tput cup 10 0; tput el
+        tput cup 11 0; tput el
+        tput cup 12 0; tput el
+        tput cup 13 0; tput el
+        tput cup 14 0; tput el
+        tput cup 15 0; tput el
+        tput cup 16 0; tput el
+        tput cup 17 0; tput el
+        }
     }
 
 ####################################### SCRIPT INITIALIZATION #####################################
 touch "$log"                                  				#Create a log file if it does not exist
 touch "$elog"						   									
 
-cfCHDIR													   		#Check current directory for 0
+cfCHDIR	#Check current directory for 0
 
 source="$2"
+
 target="$3"
-echo $source $target
+
 
 ################################### INITIALIZE NESTED FUNCTIONS ###################################
 cfLOGGER 
-  
+cfTIME 
+cfINTERFACE
 ############################################# GETOPTS #############################################
 ## Based on getopts tutorial found at http://wiki.bash-hackers.org/howto/getopts_tutorial
 ## Base use of getopts: while getopts "OPTSTRING" VARNAME;
@@ -800,14 +831,27 @@ done
 
 ############################### DETERMINE AMOUNT OF DATA AND ETA #####################################
  cfLOGGER.file -l "Transferring data over $bus."
+ 
+ #Draw beginning interface
+ cfINTERFACE.start
+ 
+ #Get size of data to copy
  cfDISKSPACE								
- transTimeRaw=$(echo "scale=9; (($sizeRAW*512)/1000000)*$typef" | bc) 
- cfTIME $transTimeRaw
- echo "We are about to copy" $sizeHUMAN"B of data."
- etaO="$timeHours Hours $timeMinutes Minutes $timeSeconds Seconds"
- echo "Transfer via $bus will take a minimum of" $timeHours" hours, "$timeMinutes" minutes, "$timeSeconds" seconds."
- echo "Transfer time estimate assumes drive is corrupted or failing."
+ 
+ #Draw our main interface.
+ cfINTERFACE.run
+ #Calculate ETC
+ transTimeRaw=$(echo "scale=0; (($sizeRAW*512)/1000000)*$typef" | bc) 
+ cfTIME.date $transTimeRaw
+ cfTIME.time $transTimeRaw
+ tput cup 5 2; echo $time && etaO=$time
+ tput cup 5 91; echo $transrateL $transrateH | awk '{printf "%d - %d", $1 $2}'
+ tput cup 5 68; echo $sizeHUMAN"" | awk '{printf "%.8sB", $1}'
+ tput cup 14 32; echo "$source" | awk '{printf "%-.66s", $1}'
+ tput cup 16 32; echo "$target" | awk '{printf "%-.66s", $1}'
+
 ######################################### DITTO PREFLIGHT ##########################################
+
 cfSYSCHECK
 cfVERSREQ
 start_time=$(date +%s)                                  #Grab the current system time
@@ -817,40 +861,11 @@ IFS=$(echo -en "\n\b")
 SOURCELIST=($(ls -A "$source" | grep -v Volumes))
 IFS=$IFSTMP
 ############################################# FOR LOOP #############################################
-#		Date & Time
-#		XXGB copied.
-#		XX% completed
-#		Remaining to copy: XXGB
-#		Current Transfer Rate: XX MB per second
-#		Expected Transfer Rate: XX to XX MB per second.
-#		Original ETA:
-#		Current ETA:
-#		Elapsed time:
-#		Currently copying data in:
-#		Last file copied was:
-#		
-#		Error report.
-#		XX errors have occured.
-#
-#Time		% Complete		Copied	Remaining	Transfer Rate/Expected
-#-----------------------------------------------------------------------------------------------------------------
-#
-#
-#-----------------------------------------------------------------------------------------------------------------
-#-----------------------------------------------------------------------------------------------------------------
-#
-#ETA Original		ETA Current		Elapsed	Current Folder	Current File
-#-----------------------------------------------------------------------------------------------------------------
-#
-#
-#-----------------------------------------------------------------------------------------------------------------
-#
-####################################################################################################
+
 count=0
 COPIED=()
 for i in "${SOURCELIST[@]}"
 	do
-		echo "Copying $i"
 		cfLOGGER.file -l "Copying $i"
 		sudo ditto -V "$i" "$target$i" 2>>$clog &
 		cfLOGGER.file -l "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
@@ -870,48 +885,46 @@ for i in "${SOURCELIST[@]}"
         		copiedRAW=$((sizeInitial-sizeCOPIED))			#How much has been copied in RAW format                    
 				copiedRAW=$(echo ${copiedRAW#-})
 				
-        		###### IF Statement Begins #####
         		#+determines the scale of the data copied and presents it in human readable form
         	    cfSCALE $copiedRAW
         		copiedHUMAN=$(echo "scale=2; ($copiedRAW*512)/$sdiv" | bc)$sunit
-        		echo $copiedHUMAN " copied."
+        		tput cup 5 57; echo $copiedHUMAN"B" | awk '{printf "%-.8s", $1}'
         		# END of if statement
         		
         		# Calculate and present the percentage of data copied
         		percentCOMPLETE=$(echo "scale=2; ($copiedRAW/$sizeRAW)*100" | bc)
-        		echo $percentCOMPLETE"% completed."
+        		tput cup 5 49; echo $percentCOMPLETE"%" | awk '{printf "%.1f", $1}'
         		
         		###### IF Statement Begins #####
         		# Calculate and present the amount of data remaining to be copied
         		remaining=$((sizeRAW-copiedRAW))
         		cfSCALE $remaining
 				remainingHUMAN=$(echo "scale=2; ($remaining*512)/$sdiv" | bc)$sunit
-				echo "Remaining to copy:" $remainingHUMAN
+				tput cup 5 68; echo $remainingHUMAN"B" | awk '{printf "%-.8s", $1}'
 				# END of if statement
 				
 				# Transfer Rates
 				copiedDELTA=$(echo "scale=0; ($copiedRAW-$copiedTEMP)" | bc )
 				transSPEED=$(echo "scale=2; (($copiedDELTA/30)*512)/1000000" | bc )
-				echo " Current Transfer Rate: "$transSPEED" MB per second"
-				echo "Expected Transfer Rate: "$transrateL" to "$transrateH" MB per second"
+				tput cup 5 79; echo $transSPEED | awk '{printf "%.2f MB", $1}'
+				
 				
 				# Calculate the amount of time remaining
 				timeLEFT=$(echo "scale=2; (($remaining*512)/1000000)*$typef" | bc)
-				cfTIME $timeLEFT
-				etaCurrent="$timeHours Hours $timeMinutes Minutes $timeSeconds Seconds"
-				echo "Original ETA:" $etaO
-				echo " Current ETA:" $etaCurrent
-        		cfTIME $SECONDS
-        		echo "Elapsed time: $timeHours Hours $timeMinutes Minutes $timeSeconds Seconds"
-				
-				
+				cfTIME.time $timeLEFT
+				tput cup 5 17; echo $time
+        		tput cup 5 32; echo "scale=4; $SECONDS/3600" | bc | awk -v EL=$SECONDS -F. '{
+        		    HH=$1
+        		    MM=int((EL-(HH*3600))/60)
+        		    SS=(EL-((HH*3600)+(MM*60)))
+        		    printf "%02d:%02d:%02d", HH,MM,SS}'
+        		    
 				# Display information on the current working directory/file and the most recent error.
 				
 				lastFILE="($(ls -A $i | tail -n 1))"
-				echo "Currently copying items in: "$i
-				echo "Last item copied was: $lastFILE"
-                echo "Last file copy error: $lastFERROR"
-                echo "Last error from ditto: $lastERROR"
+				tput cup 8 32; echo $i | awk '{printf "%-.66s", $1}'
+				tput cup 10 32; echo "$lastFILE" | awk '{printf "%-.66s", $1}'
+                tput cup 12 32; echo "$lastFERROR" | awk '{printf "%-.66s", $1}'
 				
 				copiedTEMP=$copiedRAW
         		# Script will now sleep for $refresh seconds. Default value of $refresh is 10.
@@ -933,17 +946,20 @@ for i in "${SOURCELIST[@]}"
 cfCOMPLETE	
 cfLOGGER.ditto $count
 cfLOGGER.ditto dump
+cfINTERFACE.close
 finish_time=$(date +%s)
 total_time=$(echo "scale=2; ($finish_time - $start_time)" | bc)
-transAVE=$(echo "scale=2; ((($sizeRAW*512)/1000000)/$total_time)" | bc)
-echo "Average transfer rate of "$transAVE "MB per second."
+copiedDELTA=$(echo "scale=0; ($copiedRAW-$copiedTEMP)" | bc )
+transAVE=$(echo "scale=2; (($copiedDELTA/30)*512)/1000000" | bc )
 cfTIME $total_time
-echo "Total time to transfer data: $timeHours hours, $timeMinutes minutes, $timeSeconds secs." 
-echo "Original ETA:" $etaO   
-echo "Transfer of data is completed."				# Script has completed.
+tput cup 3 2; echo $time
+tput cup 3 18; echo date +"%r"| awk '{printf "%-.12s", $1}'
+tput cup 3 34; echo $transAVE  | awk '{printf "%.2f MB", $1}'
+#tput cup 3 ; echo    				
+# Script has completed.
 ######################################### END FINAL REPORT #########################################
 
 ########################################### FILE CLEANUP ###########################################
-mv $log /Library/Logs/carbon.$today.log
+mv $log ~/Library/Logs/carbon.$today.log
 exit												# Script exits. Have a nice day.
 ############################################ END SCRIPT ############################################
