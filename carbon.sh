@@ -3,6 +3,26 @@
 #
 #
 #	carbon
+#   v20141021
+#   - Broke many things. Script exits shortly after starting.
+#   - sizeRAW was breaking the interface, should no properly print to the Start
+#       interface in location 8 32.
+#   - cfLOGGER.file reported illegal option " --l". Option for "l" was provided,
+#       but the getopts opt had only "te" options available. Changed this to "let"
+#       to solve.
+#   - Line 568 (if [ $cfDMG -eq 1 ];) was returning an error for cfDISKPACE()
+#       "[: -eq:] unary operator expected". This was because cfDMG did not have a default
+#       value, and beause the var name was the same as a function. Switched the var name
+#       to cfDMGSET and set a default value of 0. Should allow cfDISKSPACE to function 
+#       properly if we are not asking for a disk image to be created (no more unary 
+#       operator error).
+#   - Line 551 complex and/or broke the script. 
+#       sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target" 
+#       || cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73
+#       Was supposed to make the target directory and print a success message to the logs,
+#       or report as read only and exit with a failure. Ended up creating the directory, writing success
+#       and exiting with failure. Second half (the or) has been commented out until we figure out
+#       how to do so properly.
 #   v20141015
 #   - cfINTERFACE edited to have a beggining, middle and end interface.
 #   - sizeRAW calculation updated. Prints top-level directory to cfINTERFACE.open
@@ -349,14 +369,16 @@
 ###################################### GLOBAL VARIABLES ######################################
 version="20140807b"                                             
 width=$(tput cols)                                             #Determine width of window
-refresh=10                                                     #Set default refresh
+refresh=10  
+cfDMGSET=0
+#Set default refresh
 copiedRAW=0                                                    #Set the initial amount of data copied
 debugON=0
 sysREQ=(5 6 7 8 9)
 SYSTEM=$(sw_vers -productVersion | awk -F. '{print $2}')
 copiedTEMP=0
 stamp=$(date +"%D %T")
-today=$(date +"%m_%d_%Y")
+today=$(date +"%m%d%Y")
 mkdir ~/Library/Logs/Carbon/$today
 log=~/Library/Logs/Carbon/$today/message.log
 clog=~/Library/Logs/Carbon/$today/copy.log
@@ -426,7 +448,7 @@ cfLOGGER ()
         stamp=$(date +"[%m/%d/%y %H:%M:%S]")
         
         #Branch to correct log file.
-        while getopts "te" opt; do
+        while getopts "let" opt; do
             case "${opt}" in
                 l)  shift; echo $stamp "$*" >> $log;;
                 e)  shift; echo $stamp "$*" >> $elog;;
@@ -553,11 +575,11 @@ cfDISKSPACE ()
     cfPATH "$source" source                                                             #Ensure path has a trailing /
     cfPATH "$target" target                                                             #Ensure path has a trailing /
     cfLOGGER.file -l "Calculating size of data to be copied using command du. This will take some time, please be patient."
-    sizeRAW=$(du -a ./ | awk -v C=$(tput cup 8 32) -F'[/\t]' '{printf("\rChecking %60s", $3) >"/dev/stderr" } END{print "" > "/dev/stderr";printf $1}')                                        #sizeRAW is used for calculations
+    sizeRAW=$(du -a ./ | awk -v C=$(tput cup 8 32) -F'[/\t]' '{printf(C "%59s", $3) >"/dev/stderr" } END{print "" > "/dev/stderr";printf $1}')                                        #sizeRAW is used for calculations
     cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
     ##### END CHECK SOURCE #####  
     ##### CHECK TARGET #####   
-    if [ $cfDMG -eq 1 ]; then
+    if [ $cfDMGSET -eq 1 ]; then
     	cfLOGGER.file -l "cfDISKSPACE [FUNC]:[CALL-FUNCTION]:0 Run function cfDMG."
     	cfDMG
     	
@@ -618,16 +640,20 @@ cfPATH ()
         eval "$2='$1'"
     fi
     }
-    
-cfCHDIR ()
-	{
-		# cfCHDIR looks for a file in the directory plus is run from. If a file named '0'
-		#+ is found, the script attempts to remove it prior to continuing.
-	if [ -e ./0 ]; then
-		cfLOGGER.file -l "cfCHDIR [SUCCESS]:[ZFILE] Zero byte file located."
-		sudo rm ./0 && cfLOGGER.file -l "cfCHDIR [SUCCESS]:[ZFILE] Zero byte file removed."
-	fi
-	}
+
+# Thanks to another post on the unix.com forums, this function should no longer be required.
+# http://www.unix.com/shell-programming-and-scripting/252276-whats-wrong-while-loop.html
+# At one point, there was a test for something like [ $scriptRUNTIME > 0 ]
+# per the above post, the "> 0" was redirecting an output to a file named "0".
+# cfCHDIR ()
+# 	{
+# 		# cfCHDIR looks for a file in the directory plus is run from. If a file named '0'
+# 		#+ is found, the script attempts to remove it prior to continuing.
+# 	if [ -e ./0 ]; then
+# 		cfLOGGER.file -l "cfCHDIR [SUCCESS]:[ZFILE] Zero byte file located."
+# 		sudo rm ./0 && cfLOGGER.file -l "cfCHDIR [SUCCESS]:[ZFILE] Zero byte file removed."
+# 	fi
+# 	}
 	
 
 cfSYSCHECK ()
@@ -824,7 +850,7 @@ while getopts "u48tevhd" opt; do
 		e)	bus="Ethernet"; type=.01904761905; typef=.05714285714; transrateL=18; transrateH=53;;
 		v)  cfVERSION;;											
 		h)	cfHELP | less; exit 0;;	
-		d)  cfDMG=1;;
+		d)  cfDMGSET=1;;
 		?)  why | nroff -msafer -mandoc; exit 0;;
 	esac
 done
