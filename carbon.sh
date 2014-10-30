@@ -3,6 +3,9 @@
 #
 #
 #	carbon
+#   v20141030
+#   - cfTARGET.CHECK line 562 changed to avoid exitting the script unintentionally
+#       even when a target directory can be created.
 #   v20141021
 #   - Broke many things. Script exits shortly after starting.
 #   - sizeRAW was breaking the interface, should no properly print to the Start
@@ -554,8 +557,12 @@ cfTARGET ()
         cfLOGGER.file -t "cfTARGET [SUCCESS]:[TARGET]:0 Directory location is valid."
         
         #Make our target directory AND print a log message. OR Location is read only AND exit with error.
-        sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target" #|| cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73
-        
+        #http://mywiki.wooledge.org/BashGuide/TestsAndConditionals#Control_Operators_.28.26.26_and_.7C.7C.29
+        #cmd 1 && cmd 2 || {cmd 3 && cmd 4;}
+        #If cmd 1 succeeds and cmd 2 succeeds skip {;}
+        #If cmd 1 fails skip && run {;}
+        #Curly braces require a newline or semicolon to end.
+        sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target" || {cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73;}
     fi
     
     #cfTARGET.MAIN
