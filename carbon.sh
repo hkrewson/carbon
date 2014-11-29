@@ -3,6 +3,9 @@
 #
 #
 #	carbon
+#   v20141128
+#   - fix for directory not found line 393
+#   - potential fix for exit 73
 #   v20141030
 #   - cfTARGET.CHECK line 562 changed to avoid exitting the script unintentionally
 #       even when a target directory can be created.
@@ -382,6 +385,7 @@ SYSTEM=$(sw_vers -productVersion | awk -F. '{print $2}')
 copiedTEMP=0
 stamp=$(date +"%D %T")
 today=$(date +"%m%d%Y")
+mkdir ~/Library/Logs/Carbon
 mkdir ~/Library/Logs/Carbon/$today
 log=~/Library/Logs/Carbon/$today/message.log
 clog=~/Library/Logs/Carbon/$today/copy.log
@@ -562,7 +566,7 @@ cfTARGET ()
         #If cmd 1 succeeds and cmd 2 succeeds skip {;}
         #If cmd 1 fails skip && run {;}
         #Curly braces require a newline or semicolon to end.
-        sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target" || {cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73;}
+        {sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target"} || {cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73;}
     fi
     
     #cfTARGET.MAIN
