@@ -387,6 +387,7 @@ stamp=$(date +"%D %T")
 today=$(date +"%m%d%Y")
 mkdir ~/Library/Logs/Carbon
 mkdir ~/Library/Logs/Carbon/$today
+touch ~/Library/Logs/Carbon/$today/debug.log
 log=~/Library/Logs/Carbon/$today/message.log
 clog=~/Library/Logs/Carbon/$today/copy.log
 elog=~/Library/Logs/Carbon/$today/error.log
@@ -566,7 +567,7 @@ cfTARGET ()
         #If cmd 1 succeeds and cmd 2 succeeds skip {;}
         #If cmd 1 fails skip && run {;}
         #Curly braces require a newline or semicolon to end.
-        {sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target"} || {cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73;}
+        {sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target";} || {cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73;}
     fi
     
     #cfTARGET.MAIN
