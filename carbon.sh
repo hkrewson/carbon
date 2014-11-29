@@ -385,18 +385,6 @@ SYSTEM=$(sw_vers -productVersion | awk -F. '{print $2}')
 copiedTEMP=0
 stamp=$(date +"%D %T")
 today=$(date +"%m%d%Y")
-mkdir ~/Library/Logs/Carbon
-mkdir ~/Library/Logs/Carbon/$today
-touch ~/Library/Logs/Carbon/$today/debug.log
-log=~/Library/Logs/Carbon/$today/message.log
-clog=~/Library/Logs/Carbon/$today/copy.log
-elog=~/Library/Logs/Carbon/$today/error.log
-####################################### SET DEBUG TRUE #######################################
-# Enables debug mode in bash for this script and writes all debug related output to a file
-#on the current user's desktop. File is labled 'DEBUG' with today's date.
-export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
-exec 2>~/Library/Logs/Carbon/$today/debug.log
-set -x
 ########################################### FUNCTIONS ###########################################
 
 cfHELP ()
@@ -447,7 +435,40 @@ cfHELP ()
 		echo ""
     myLOGGER "Printed help message."
     }
+    
+logFiler ()
+	{
+	cd ~/Library/Logs
 
+	if [[ ! -d Carbon ]]; then
+		mkdir Carbon
+	fi
+
+	cd Carbon/
+
+	if [[ ! -d $today ]]; then
+		mkdir $today
+	fi
+
+	cd $today
+
+	if [[ ! -e *.log ]]; then
+		touch debug.log
+		touch message.log
+		touch copy.log
+		touch error.log
+	fi
+	}
+
+setDebug ()
+	{
+	# Enables debug mode in bash for this script and writes all debug related output to a file
+    #on the current user's desktop. File is labled 'DEBUG' with today's date.
+	export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+	exec 2>~/Library/Logs/Carbon/$today/debug.log
+	set -x
+	}
+	
 cfLOGGER () 
     {
     cfLOGGER.file()
@@ -561,13 +582,12 @@ cfTARGET ()
         #Target does not exist, Location is valid.
         cfLOGGER.file -t "cfTARGET [SUCCESS]:[TARGET]:0 Directory location is valid."
         
-        #Make our target directory AND print a log message. OR Location is read only AND exit with error.
-        #http://mywiki.wooledge.org/BashGuide/TestsAndConditionals#Control_Operators_.28.26.26_and_.7C.7C.29
-        #cmd 1 && cmd 2 || {cmd 3 && cmd 4;}
-        #If cmd 1 succeeds and cmd 2 succeeds skip {;}
-        #If cmd 1 fails skip && run {;}
-        #Curly braces require a newline or semicolon to end.
-        {sudo mkdir "$target" && cfLOGGER.file -l "Created target directory: $target";} || {cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." && exit 73;}
+        if [[ mkdir "$target" ]]; then
+            cfLOGGER.file -l "Created target directory: $target"
+        else
+            cfLOGGER.file -t "cfTARGET [ERROR]:[EX-CANTCREAT]:73 Destination is read-only." 
+            exit 73
+        fi
     fi
     
     #cfTARGET.MAIN
@@ -822,20 +842,19 @@ cfINTERFACE ()
     }
 
 ####################################### SCRIPT INITIALIZATION #####################################
-touch "$log"                                  				#Create a log file if it does not exist
-touch "$elog"						   									
-
-cfCHDIR	#Check current directory for 0
-
-source="$2"
-
-target="$3"
-
-
-################################### INITIALIZE NESTED FUNCTIONS ###################################
+#Function Init
+logFiler
+setDebug						   									
 cfLOGGER 
 cfTIME 
 cfINTERFACE
+
+#Start Checking Variables
+cfCHDIR	#Check current directory for 0
+
+source="$2"
+target="$3"
+
 ############################################# GETOPTS #############################################
 ## Based on getopts tutorial found at http://wiki.bash-hackers.org/howto/getopts_tutorial
 ## Base use of getopts: while getopts "OPTSTRING" VARNAME;
