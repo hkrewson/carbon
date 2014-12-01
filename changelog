@@ -5,6 +5,14 @@ Changelog
 #
 #
 #	carbon
+#   v20141201
+#   - Added Yosemite into list of supported systems. 
+#   v20141128
+#   - fix for directory not found line 393
+#   - potential fix for exit 73
+#   v20141030
+#   - cfTARGET.CHECK line 562 changed to avoid exitting the script unintentionally
+#       even when a target directory can be created.
 #   v20141021
 #   - Broke many things. Script exits shortly after starting.
 #   - sizeRAW was breaking the interface, should no properly print to the Start

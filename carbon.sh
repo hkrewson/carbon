@@ -3,6 +3,8 @@
 #
 #
 #	carbon
+#   v20141201
+#   - Added Yosemite into list of supported systems. 
 #   v20141128
 #   - fix for directory not found line 393
 #   - potential fix for exit 73
@@ -374,14 +376,13 @@
 
 ###################################### GLOBAL VARIABLES ######################################
 version="20140807b"                                             
-width=$(tput cols)                                             #Determine width of window
-refresh=10  
+width=$(tput cols)                                          #Determine width of window
+refresh=10                                                  #Set default refresh
 cfDMGSET=0
-#Set default refresh
-copiedRAW=0                                                    #Set the initial amount of data copied
+copiedRAW=0                                                 #Set the initial amount of data copied
 debugON=0
-sysREQ=(5 6 7 8 9)
-SYSTEM=$(sw_vers -productVersion | awk -F. '{print $2}')
+sysREQ=(5 6 7 8 9 10)
+swVERS=$(sw_vers -productVersion | tr -d '\n')
 copiedTEMP=0
 stamp=$(date +"%D %T")
 today=$(date +"%m%d%Y")
@@ -436,7 +437,7 @@ cfHELP ()
     myLOGGER "Printed help message."
     }
     
-logFiler ()
+cfSETLOGS ()
 	{
 	cd ~/Library/Logs
 
@@ -460,7 +461,7 @@ logFiler ()
 	fi
 	}
 
-setDebug ()
+cfDEBUG ()
 	{
 	# Enables debug mode in bash for this script and writes all debug related output to a file
     #on the current user's desktop. File is labled 'DEBUG' with today's date.
@@ -699,26 +700,28 @@ cfSYSCHECK ()
 		7) SYSTEM=Lion;;
 		8) SYSTEM="Mountain Lion";;
 		9) SYSTEM=Mavericks;;
+		10) SYSTEM=Yosemite;;
 	esac
-	cfLOGGER.file -l "Currently running on MacOS X $(sw_vers -productVersion) $SYSTEM"
+	cfLOGGER.file -l "Currently running on MacOS X $swVERS $SYSTEM"
 	}
 
 cfVERSREQ ()
 	{
-	if [[ "$sysCUR" != "${sysREQ[0]}" ]] && [[ "$sysCUR" != "${sysREQ[1]}" ]] && [[ "$sysCUR" != "${sysREQ[2]}" ]] && [[ "$sysCUR" != "${sysREQ[3]}" ]] && [[ "$sysCUR" != "${sysREQ[4]}" ]]; then
+	if [[ "$sysCUR" != "${sysREQ[0]}" ]] && [[ "$sysCUR" != "${sysREQ[1]}" ]] && [[ "$sysCUR" != "${sysREQ[2]}" ]] && [[ "$sysCUR" != "${sysREQ[3]}" ]] && [[ "$sysCUR" != "${sysREQ[4]}" ]] && [[ "$sysCUR" != "${sysREQ[5]}" ]]; then
 		cfLOGGER.file -t "This script requires 10.6 or newer"
-		cfLOGGER.file -t "Current system is 10."$sysCUR
-		exit
+		cfLOGGER.file -t "Current system is $swVERS"
+		exit 72
 	else
-		cfLOGGER.file -l "Supported OS."
+		cfLOGGER.file -l "Installed OS $swVERS is supported."
+		return 0
 	fi
 
 	}
 	
-float () 
-    {
-    printf "%.0f\n" "$@"
-    }
+# cfFLOAT () 
+#     {
+#     printf "%.0f\n" "$@"
+#     }
 
 cfDMG ()
 	{
@@ -843,8 +846,8 @@ cfINTERFACE ()
 
 ####################################### SCRIPT INITIALIZATION #####################################
 #Function Init
-logFiler
-setDebug						   									
+cfSETLOGS
+cfDEBUG						   									
 cfLOGGER 
 cfTIME 
 cfINTERFACE
@@ -882,7 +885,6 @@ while getopts "u48tevhd" opt; do
 		v)  cfVERSION;;											
 		h)	cfHELP | less; exit 0;;	
 		d)  cfDMGSET=1;;
-		?)  why | nroff -msafer -mandoc; exit 0;;
 	esac
 done
 
