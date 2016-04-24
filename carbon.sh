@@ -6,6 +6,8 @@
 #   vNEXTSAVE
 #   - Use command "cp -Rp" either in place of "ditto -V" or set up a method 
 #       of determining support OS portability (Linux/Unix/OSX)
+#   v1889r2
+#   - removed "clear" from while loop
 #   v1889
 #   - use of shellcheck.net to begin removal of possible errors (not quoting, 
 #       improper command usage, lack of error checking, etc.)
@@ -421,7 +423,7 @@
 ############################## HEADER ENDS #####################################
 
 ############################ VERSION VARIABLES #################################
-version="1.8.8.9"  
+version="1.8.8.9r2"  
 build="0417"
 YEAR="2016"
 cfbname=$(basename -s .sh "$0")
@@ -594,8 +596,10 @@ cfLOGGER ()
                 done
         
         	cfLOGGER.file -l "[.ditto]: >>> Copying ${SOURCELIST[$((COUNT-1))]}"  
-        	lastERROR=$(echo "${aERROR[@]}" | tail -n 1) && tput cup 12 31; echo "$lastERROR"
-        	lastFERROR=$(echo "${aFILE[@]}" | tail -n 1) && tput cup 10 31; echo "$lastFERROR"
+        	lastERROR=$(echo "${aERROR[@]}" | tail -n 1) \
+        	            && tput cup 12 31; echo "$lastERROR"
+        	lastFERROR=$(echo "${aFILE[@]}" | tail -n 1) \
+        	            && tput cup 10 31; echo "$lastFERROR"
         	
         fi
     fi
@@ -675,10 +679,16 @@ cfDISKSPACE ()
     ##### CHECK SOURCE #####
     cfPATH "$source" source                                                             #Ensure path has a trailing /
     cfPATH "$target" target                                                             #Ensure path has a trailing /
+    
+    #Calculate raw data size
     cfLOGGER.file -l "Calculating size of data to be copied using command du. This will take some time, please be patient."
+    
+    # du gets raw size. awk sets a cursor location (tput cup), grabs the raw 
+    # size total, and prints to screen.
     sizeRAW=$(du -a ./ | awk -v C=$(tput cup 8 32) -F'[/\t]' '{printf(C "%59s", $3) >"/dev/stderr" } END{print "" > "/dev/stderr";printf $1}')                                        #sizeRAW is used for calculations
     cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
-    ##### END CHECK SOURCE #####  
+
+
     ##### CHECK TARGET #####   
     if [ $cfDMGSET -eq 1 ]; then
     	cfLOGGER.file -l "cfDISKSPACE [FUNC]:[CALL-FUNCTION]:0 Run function cfDMG."
@@ -691,7 +701,7 @@ cfDISKSPACE ()
     ##### END CHECK cfTARGET #####    
     ##### HUMAN READABLE SIZE OF SOURCE #####
     cfLOGGER.file -l "cfDISKSPACE [FUNC]:[CALL-FUNCTION]:0 Run function cfSCALE on raw size [source]:[$source] $sizeRAW."
-    cfSCALE $sizeRAW
+    cfSCALE "$sizeRAW"
     sizeHUMAN=$(echo "scale=2; ($sizeRAW*512)/$sdiv" | bc)$sunit                            #Calculate size
     cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated size of source in human readable format. $sizeHUMAN"
     ##### END HUMAN READABLE SIZE #####
@@ -700,11 +710,11 @@ cfDISKSPACE ()
 
 cfSCALE ()
     {
-        if [ $1 -lt 1757813 ]; then                                                       #Is size below MB threshhold 
-        sdiv=1000000 sunit=M                                                                #Size is in MB
+        if [ "$1" -lt 1757813 ]; then                                                       #Is size below MB threshhold 
+        sdiv=1000000 sunit=MB                                                                #Size is in MB
     	cfLOGGER.file -l "Size calculation in MB."
     else
-        sdiv=1000000000 sunit=G                                                             #Size is in GB
+        sdiv=1000000000 sunit=GB                                                             #Size is in GB
     	cfLOGGER.file -l "Size calculation in GB."
     fi
     }
@@ -727,7 +737,7 @@ cfTIME ()                                                       						#Calculate
         cfTIME.date ()
         {
             dateTime=$(date -v +"$1"S) 
-            tput cup 0 66; echo $dateTime
+            tput cup 0 66; echo "$dateTime"
             cfLOGGER.file -l "cfTIME [DATE]:Estimated Date of Completion: $dateTime"
         }
         
@@ -742,7 +752,7 @@ cfPATH ()
     {
         #  cfPATH checks to see if there is a trailing / character in the path arguments
         #+ if there is not, one is added. 
-    if	[[ $1 != */ ]]; then
+    if	[[ "$1" != */ ]]; then
         eval "$2='$1'/"
     else
         eval "$2='$1'"
@@ -787,15 +797,15 @@ cfDMG ()
 	{
 	cfTARGET.VOLUMES
 	#dmgsize converts sizeRAW into human readable GB, removes decimal, and adds 1GB for clearance.
-	dmgsize=$(echo $sizeRAW | awk '{print ($1 * 512) / 1000000000}' | awk '{printf "%.0f\n", $1}' | awk '{print ($1 + 1)}')
+	dmgsize=$(echo "$sizeRAW" | awk '{print ($1 * 512) / 1000000000}' | awk '{printf "%.0f\n", $1}' | awk '{print ($1 + 1)}')
 	#dmgname equals the final section of $target, ie: /Volumes/Backup/backup would become dmgname=backup
-	dmgname=$(echo $target | awk -F/ '{print $(NF-1)}')
-	cdtarget=$(dirname $target)
-	cd $cdtarget
+	dmgname=$(echo "$target" | awk -F/ '{print $(NF-1)}')
+	cdtarget=$(dirname "$target")
+	cd "$cdtarget"
 	#Create the disk image
 	cfLOGGER.file -t "Creating a disk image of $dmgsize GB labeled $dmgname"
-	hdiutil create -volname $dmgname -size $dmgsize -type SPARSEBUNDLE -fs HFS+ $dmgname
-	hdiutil mount $dmgname.sparseimage
+	hdiutil create -volname "$dmgname" -size "$dmgsize" -type SPARSEBUNDLE -fs HFS+ "$dmgname"
+	hdiutil mount "$dmgname".sparseimage
 	target="/Volumes/$dmgname/"
 	sizeInitial=$(df "$target" | awk '!/Used/ {print $3}')
     cfLOGGER.file -l "Calculated size of data in [Target] directory $target."
@@ -805,7 +815,7 @@ cfCOMPLETE ()
     {
     percentCOMPLETE=$(echo "scale=0; ($copiedRAW/$sizeRAW)*100" | bc)
         
-    if [[ $percentCOMPLETE -ge 99 ]]; then
+    if [[ "$percentCOMPLETE" -ge 99 ]]; then
     	tput cup 8 31; echo "Data copy completed successfully."
     	tput cup 5 49; echo $percentCOMPLETE"%"
     else
@@ -889,11 +899,11 @@ cfINTERFACE ()
          tput cup 3 0; tput el; echo "|==============|================|===============|=======|============|==========|"
          tput cup 4 0; tput el; echo "|              |                |               |       |            |          |"
          tput cup 5 0; tput el; echo "|______________|________________|_______________|_______|____________|__________|"
-         tput cup 6 0; tput el; echo "|           |    Copy Log : username/Library/Logs/Carbon/copy.log               |"
-         tput cup 7 0; tput el; echo "| Log Files |   Debug Log : username/Library/Logs/Carbon/debug.log              |"
-         tput cup 8 0; tput el; echo "|           | Message Log : username/Library/Logs/Carbon/message.log            |"
-         tput cup 9 0; tput el; echo "|           |   Error Log : username/Library/Logs/Carbon/error.log              |"
-        tput cup 10 0; tput el; echo "|===========|===================================================================|"  
+         tput cup 6 0; tput el; echo "|                                        |    Copy Log : copy.log               |"
+         tput cup 7 0; tput el; echo "| Log Files located within directory:    |   Debug Log : debug.log              |"
+         tput cup 8 0; tput el; echo "|      username/Library/Logs/Carbon/     | Message Log : message.log            |"
+         tput cup 9 0; tput el; echo "|                                        |   Error Log : error.log              |"
+        tput cup 10 0; tput el; echo "|========================================|======================================|"  
         tput cup 11 0; tput el
         tput cup 12 0; tput el
         tput cup 13 0; tput el
@@ -998,7 +1008,7 @@ for i in "${SOURCELIST[@]}"
         cfLOGGER.ditto $count
         
 		#sleep 4                                         # Pause the script for 4 seconds.
-		clear
+		#clear
 
 		cfRUNTIME
 
@@ -1018,26 +1028,26 @@ for i in "${SOURCELIST[@]}"
         		
         		# Calculate and present the percentage of data copied
         		percentCOMPLETE=$(echo "scale=2; ($copiedRAW/$sizeRAW)*100" | bc)
-        		tput cup 5 49; echo $percentCOMPLETE"%" | awk '{printf "%.1f", $1}'
+        		tput cup 5 49; echo "$percentCOMPLETE" | awk '{printf "%.1f", $1}'
         		
         		###### IF Statement Begins #####
         		# Calculate and present the amount of data remaining to be copied
         		remaining=$((sizeRAW-copiedRAW))
-        		cfSCALE $remaining
-				remainingHUMAN=$(echo "scale=2; ($remaining*512)/$sdiv" | bc)$sunit
-				tput cup 5 68; echo $remainingHUMAN"B" | awk '{printf "%-.8s", $1}'
+        		cfSCALE "$remaining"
+				remainingHUMAN=$(echo "scale=2; ($remaining*512)/$sdiv" | bc)"$sunit"
+				tput cup 5 68; echo "$remainingHUMAN" | awk '{printf "%-.8s", $1}'
 				# END of if statement
 				
 				# Transfer Rates
 				copiedDELTA=$(echo "scale=0; ($copiedRAW-$copiedTEMP)" | bc )
 				transSPEED=$(echo "scale=2; (($copiedDELTA/30)*512)/1000000" | bc )
-				tput cup 5 79; echo $transSPEED | awk '{printf "%.2f MB", $1}'
+				tput cup 5 79; echo "$transSPEED" | awk '{printf "%.2f MB", $1}'
 				
 				
 				# Calculate the amount of time remaining
 				timeLEFT=$(echo "scale=2; (($remaining*512)/1000000)*$typef" | bc)
-				cfTIME.time $timeLEFT
-				tput cup 5 17; echo $time
+				cfTIME.time "$timeLEFT"
+				tput cup 5 17; echo "$time"
         		tput cup 5 32; echo "scale=4; $SECONDS/3600" | bc | awk -v EL=$SECONDS -F. '{
         		    HH=$1
         		    MM=int((EL-(HH*3600))/60)
@@ -1051,9 +1061,9 @@ for i in "${SOURCELIST[@]}"
 				tput cup 10 32; echo "$lastFILE" | awk '{printf "%-.66s", $1}'
                 tput cup 12 32; echo "$lastFERROR" | awk '{printf "%-.66s", $1}'
 				
-				copiedTEMP=$copiedRAW
+				copiedTEMP="$copiedRAW"
         		# Script will now sleep for $refresh seconds. Default value of $refresh is 10.
-        		sleep $refresh
+        		sleep "$refresh"
         		clear
         		cfRUNTIME
             done		
@@ -1069,17 +1079,17 @@ for i in "${SOURCELIST[@]}"
 #		Transfer of data is completed.
 ####################################################################################################
 cfCOMPLETE	
-cfLOGGER.ditto $count
+cfLOGGER.ditto "$count"
 cfLOGGER.ditto dump
 cfINTERFACE.close
 finish_time=$(date +%s)
 total_time=$(echo "scale=2; ($finish_time - $start_time)" | bc)
 copiedDELTA=$(echo "scale=0; ($copiedRAW-$copiedTEMP)" | bc )
 transAVE=$(echo "scale=2; (($copiedDELTA/30)*512)/1000000" | bc )
-cfTIME $total_time
-tput cup 3 2; echo $time
+cfTIME "$total_time"
+tput cup 3 2; echo "$time"
 tput cup 3 18; echo date +"%r"| awk '{printf "%-.12s", $1}'
-tput cup 3 34; echo $transAVE  | awk '{printf "%.2f MB", $1}'
+tput cup 3 34; echo "$transAVE"  | awk '{printf "%.2f MB", $1}'
 #tput cup 3 ; echo    				
 # Script has completed.
 ######################################### END FINAL REPORT #########################################
