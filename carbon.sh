@@ -1025,6 +1025,7 @@ cfSYSCHECK
 cfVERSREQ
 start_time=$(date +%s)                                  #Grab the current system time
 IFSTMP=$IFS
+cd "$source"
 IFS=$(echo -en "\n\b")
 SOURCELIST=($(ls -A "$source" | grep -v Volumes))
 IFS=$IFSTMP
