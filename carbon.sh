@@ -6,6 +6,9 @@
 #   vNEXTSAVE
 #   - Use command "cp -Rp" either in place of "ditto -V" or set up a method 
 #       of determining support OS portability (Linux/Unix/OSX)
+#   v1889r3
+#   - cleanup.
+#   - additional information in interface functions
 #   v1889r2
 #   - removed "clear" from while loop
 #   v1889
@@ -423,8 +426,8 @@
 ############################## HEADER ENDS #####################################
 
 ############################ VERSION VARIABLES #################################
-version="1.8.8.9r2"  
-build="0417"
+version="1.8.8.9r3"  
+build="0426"
 YEAR="2016"
 cfbname=$(basename -s .sh "$0")
 ############################ VERSION VARIABLES #################################
@@ -538,10 +541,9 @@ cfDEBUG ()
 	set -x
 	}
 	
-cfLOGGER () 
+
+cfLOGGER.file()
     {
-    cfLOGGER.file()
-        {
         #Logfile Date Stamp
         stamp=$(date +"[%m/%d/%y %H:%M:%S]")
         
@@ -554,10 +556,10 @@ cfLOGGER ()
             esac
         done
         unset OPTIND
-        }
+    }
         
-    cfLOGGER.ditto()
-        {
+cfLOGGER.ditto()
+    {
     #Call passes in one variable. $1 is the iteration step number, subtracting 
     # 1 from this gives us the section of the log to parse.
      if [[ $1 == "dump" ]]; then
@@ -608,17 +610,8 @@ cfLOGGER ()
     
     #Empty ERRORLIST before returning to the script.
     unset 'ERRORLIST[@]'    
-        }
-    #if statement only used if calling as cfLOGGER [file | ditto] $option
-    if [[ $1 == "file" ]]; then
-        shift
-        cfLOGGER.file "$@"
-    elif [[ $1 == "ditto" ]]; then 
-        shift
-        cfLOGGER.ditto "$*"
-    fi
-        
     }
+
 
 cfTARGET ()
     {
@@ -675,7 +668,6 @@ cfTARGET ()
 cfDISKSPACE ()
     {
     cfLOGGER.file -l "---------------Function cfDISKSPACE--------------"
-    clear                                                                             
     ##### CHECK SOURCE #####
     cfPATH "$source" source                                                             #Ensure path has a trailing /
     cfPATH "$target" target                                                             #Ensure path has a trailing /
@@ -829,9 +821,10 @@ cfRUNTIME()
     scriptRUNTIME=$(ps -ceo uid,pid,etime | grep $! | awk '{print $3}')
     }
 
-cfINTERFACE ()
+cfINTERFACEinit ()
     {
-    
+        #Initialize interface by setting up a window size and position.
+        
         #http://apple.stackexchange.com/questions/33736/can-a-terminal-window-be-resized-with-a-terminal-command
         #Set width of window to 80 columns, height to 50 rows
         printf '\e[8;18;94t'    
@@ -841,9 +834,15 @@ cfINTERFACE ()
         
         #Clear the screen
         clear
+    }
         
-    cfINTERFACE.start ()
-        {
+cfINTERFACEstart ()
+    {
+        #Initialize the start interface. This will display while attempting to 
+        # determine how much data is being copied and how long the process will 
+        # be expected to take.
+        
+        clear
         #tput cup linup --   0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123
         #                    Ddd Mmm D HH:MM:SS ZON YYYY
          tput cup 0 0; echo "$(date)"
@@ -864,11 +863,19 @@ cfINTERFACE ()
         tput cup 15 0; echo "|-----------------------------|--------------------------------------------------------------|"
         tput cup 16 0; echo "|                             |                                                              |"
         tput cup 17 0; echo "|-----------------------------|--------------------------------------------------------------|"    
-        }
+    }
         
-    cfINTERFACE.run ()
-        {
+cfINTERFACErun ()
+    {
+        #Initialize the runtime interface. While data is being copied, this is 
+        # the interface displayed. Information about how long the process is 
+        # taking (including a comparison between original estimate and current),
+        # how much data has been copied vs how much remains, expected vs actual
+        # rate of file transfer, as well as information about which files and 
+        # locations are currently being worked on and the most recent error
+        # message if there is one.
         
+        clear
         #tput cup linup --   0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123
         #                    Ddd Mmm D HH:MM:SS ZON YYYY                                  EDC: Tue Oct  7 05:00:59 CDT 2014
          tput cup 0 0; echo "$(date)                                 EDC: "
@@ -889,10 +896,17 @@ cfINTERFACE ()
         tput cup 15 0; echo "|-----------------------------|--------------------------------------------------------------|"
         tput cup 16 0; echo "|             Transferring to :                                                              |"
         tput cup 17 0; echo "|-----------------------------|--------------------------------------------------------------|"
-        }
+    }
     
-    cfINTERFACE.close ()
-        {
+cfINTERFACEclose ()
+    {
+        #Initialize the closing interface. This will be the last thing the 
+        # script will present, with information about how long the process took
+        # the average rate of transfer (calculated), and how much data was
+        # copied to the destination.
+        
+        # start by clearing the screen
+        clear
          tput cup 0 0; tput el; echo "|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
          tput cup 1 0; tput el; echo "| Elapsed Time | Time Completed |    Average    |             DATA              |"
          tput cup 2 0; tput el; echo "|  (HH:MM:SS)  |   (HH:MM:SS)   | Transfer Rate |   %   | (Original) | (Backup) |"
@@ -911,7 +925,6 @@ cfINTERFACE ()
         tput cup 15 0; tput el
         tput cup 16 0; tput el
         tput cup 17 0; tput el
-        }
     }
 
 ####################################### SCRIPT INITIALIZATION #####################################
@@ -920,10 +933,9 @@ cfSETLOGS
 cfDEBUG						   									
 cfLOGGER 
 cfTIME 
-cfINTERFACE
+cfINTERFACEinit
 
 #Start Checking Variables
-cfCHDIR	#Check current directory for 0
 
 # USAGE="Usage: `basename $0` options (-u48ted) (-v version) -h for help"
 # opt=${1:?"Error. ${USAGE}"}
@@ -968,13 +980,13 @@ done
  cfLOGGER.file -l "Transferring data over $bus."
  
  #Draw beginning interface
- cfINTERFACE.start
+ cfINTERFACEstart
  
  #Get size of data to copy
  cfDISKSPACE								
  
  #Draw our main interface.
- cfINTERFACE.run
+ cfINTERFACErun
  #Calculate ETC
  transTimeRaw=$(echo "scale=0; (($sizeRAW*512)/1000000)*$typef" | bc) 
  cfTIME.date $transTimeRaw
@@ -1001,14 +1013,13 @@ count=0
 COPIED=()
 for i in "${SOURCELIST[@]}"
 	do
+	    #copy stage. Write current directory to log, initiate copy.
 		cfLOGGER.file -l "Copying $i"
 		sudo ditto -V "$i" "$target$i" 2>>$clog &
 		cfLOGGER.file -l "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
 		COPIED+=($i)
         cfLOGGER.ditto $count
         
-		#sleep 4                                         # Pause the script for 4 seconds.
-		#clear
 
 		cfRUNTIME
 
@@ -1016,33 +1027,31 @@ for i in "${SOURCELIST[@]}"
 		while [ -n "$scriptRUNTIME" ]
     		do
         		sizeCOPIED=$(df "$target" | awk '{print$3}' | sed s/Used//) 
-        							
-        		copiedRAW=$((sizeInitial-sizeCOPIED))			#How much has been copied in RAW format                    
+        		
+        		#How much has been copied in RAW format 					
+        		copiedRAW=$((sizeInitial-sizeCOPIED))			                   
 				copiedRAW=$(echo ${copiedRAW#-})
 				
-        		#+determines the scale of the data copied and presents it in human readable form
+        		#determines the scale of the data copied and presents it in
+        		# human readable form
         	    cfSCALE $copiedRAW
         		copiedHUMAN=$(echo "scale=2; ($copiedRAW*512)/$sdiv" | bc)$sunit
         		tput cup 5 57; echo $copiedHUMAN"B" | awk '{printf "%-.8s", $1}'
-        		# END of if statement
-        		
+
         		# Calculate and present the percentage of data copied
         		percentCOMPLETE=$(echo "scale=2; ($copiedRAW/$sizeRAW)*100" | bc)
         		tput cup 5 49; echo "$percentCOMPLETE" | awk '{printf "%.1f", $1}'
         		
-        		###### IF Statement Begins #####
         		# Calculate and present the amount of data remaining to be copied
         		remaining=$((sizeRAW-copiedRAW))
         		cfSCALE "$remaining"
 				remainingHUMAN=$(echo "scale=2; ($remaining*512)/$sdiv" | bc)"$sunit"
 				tput cup 5 68; echo "$remainingHUMAN" | awk '{printf "%-.8s", $1}'
-				# END of if statement
-				
+
 				# Transfer Rates
 				copiedDELTA=$(echo "scale=0; ($copiedRAW-$copiedTEMP)" | bc )
 				transSPEED=$(echo "scale=2; (($copiedDELTA/30)*512)/1000000" | bc )
 				tput cup 5 79; echo "$transSPEED" | awk '{printf "%.2f MB", $1}'
-				
 				
 				# Calculate the amount of time remaining
 				timeLEFT=$(echo "scale=2; (($remaining*512)/1000000)*$typef" | bc)
@@ -1055,16 +1064,17 @@ for i in "${SOURCELIST[@]}"
         		    printf "%02d:%02d:%02d", HH,MM,SS}'
         		    
 				# Display information on the current working directory/file and the most recent error.
-				
 				lastFILE="($(ls -A $i | tail -n 1))"
 				tput cup 8 32; echo $i | awk '{printf "%-.66s", $1}'
 				tput cup 10 32; echo "$lastFILE" | awk '{printf "%-.66s", $1}'
                 tput cup 12 32; echo "$lastFERROR" | awk '{printf "%-.66s", $1}'
 				
 				copiedTEMP="$copiedRAW"
+				
         		# Script will now sleep for $refresh seconds. Default value of $refresh is 10.
         		sleep "$refresh"
-        		clear
+        		
+        		#update runtime variable
         		cfRUNTIME
             done		
         ((count += 1))
@@ -1081,7 +1091,7 @@ for i in "${SOURCELIST[@]}"
 cfCOMPLETE	
 cfLOGGER.ditto "$count"
 cfLOGGER.ditto dump
-cfINTERFACE.close
+cfINTERFACEclose
 finish_time=$(date +%s)
 total_time=$(echo "scale=2; ($finish_time - $start_time)" | bc)
 copiedDELTA=$(echo "scale=0; ($copiedRAW-$copiedTEMP)" | bc )
