@@ -6,6 +6,13 @@
 #   vNEXTSAVE
 #   - Use command "cp -Rp" either in place of "ditto -V" or set up a method 
 #       of determining support OS portability (Linux/Unix/OSX)
+#   v1889r4
+#   - At some point sizeRAW was being calculated based upon the current location.
+#       Instead of changing the directory to the source location, cfDISKSPACE
+#       was getting disk space calculations about the log directory. Initial
+#       space calculations quickly reported an incorrect and grossly under-
+#       estimated size. Switched back to specifying the $source location for
+#       this calculated value.
 #   v1889r3
 #   - cleanup.
 #   - additional information in interface functions
@@ -426,8 +433,8 @@
 ############################## HEADER ENDS #####################################
 
 ############################ VERSION VARIABLES #################################
-version="1.8.8.9r3"  
-build="0426"
+version="1.8.8.9r4"  
+build="0429"
 YEAR="2016"
 cfbname=$(basename -s .sh "$0")
 ############################ VERSION VARIABLES #################################
@@ -677,7 +684,7 @@ cfDISKSPACE ()
     
     # du gets raw size. awk sets a cursor location (tput cup), grabs the raw 
     # size total, and prints to screen.
-    sizeRAW=$(du -a ./ | awk -v C=$(tput cup 8 32) -F'[/\t]' '{printf(C "%59s", $3) >"/dev/stderr" } END{print "" > "/dev/stderr";printf $1}')                                        #sizeRAW is used for calculations
+    sizeRAW=$(du -a "$source" | awk -v C=$(tput cup 8 32) -F'[/\t]' '{printf(C "%59s", $3) >"/dev/stderr" } END{print "" > "/dev/stderr";printf $1}')                                        #sizeRAW is used for calculations
     cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
 
 
@@ -1002,7 +1009,6 @@ done
 cfSYSCHECK
 cfVERSREQ
 start_time=$(date +%s)                                  #Grab the current system time
-cd "$source"
 IFSTMP=$IFS
 IFS=$(echo -en "\n\b")
 SOURCELIST=($(ls -A "$source" | grep -v Volumes))
