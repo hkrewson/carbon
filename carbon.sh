@@ -6,6 +6,14 @@
 #   vNEXTSAVE
 #   - Use command "cp -Rp" either in place of "ditto -V" or set up a method 
 #       of determining support OS portability (Linux/Unix/OSX)
+#   v1890rc1
+#   - Interface tweeks. echo prints a newline character, did not take this into 
+#       account when setting up the interface. Caused all printed information
+#       to be one line below expectations.
+#   - Added the name of the folder to cfINTERFACEstart
+#   - Added the size calculated to cfINTERFACEstart
+#   - Set script to pause after printing the above to allow time to read.
+#   - cfINTERFACErun should now display transferring from and to properly.
 #   v1889r4
 #   - At some point sizeRAW was being calculated based upon the current location.
 #       Instead of changing the directory to the source location, cfDISKSPACE
@@ -684,6 +692,7 @@ cfDISKSPACE ()
     
     # du gets raw size. awk sets a cursor location (tput cup), grabs the raw 
     # size total, and prints to screen.
+    tput cup 8 32; echo "$source"
     sizeRAW=$(du -a "$source" | awk -v C=$(tput cup 8 32) -F'[/\t]' '{printf(C "%59s", $3) >"/dev/stderr" } END{print "" > "/dev/stderr";printf $1}')                                        #sizeRAW is used for calculations
     cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated raw size of source. $sizeRAW"    
 
@@ -703,6 +712,12 @@ cfDISKSPACE ()
     cfSCALE "$sizeRAW"
     sizeHUMAN=$(echo "scale=2; ($sizeRAW*512)/$sdiv" | bc)$sunit                            #Calculate size
     cfLOGGER.file -l "cfDISKSPACE [CALC]:[SIZE]:0 Calculated size of source in human readable format. $sizeHUMAN"
+    
+    tput cup 10 2; echo "Calculated size of folder"
+    tput cup 10 32; echo "$sizeHUMAN$sunit"
+    
+    sleep 5
+    
     ##### END HUMAN READABLE SIZE #####
     cfLOGGER.file -l "---------------End Function cfDISKSPACE--------------"
     }
@@ -833,7 +848,7 @@ cfINTERFACEinit ()
         #Initialize interface by setting up a window size and position.
         
         #http://apple.stackexchange.com/questions/33736/can-a-terminal-window-be-resized-with-a-terminal-command
-        #Set width of window to 80 columns, height to 50 rows
+        #Set width of window to 80 columns, height to 18 rows
         printf '\e[8;18;94t'    
         #Move the window to the top left corner of the display.
         printf '\e[3;0;0t'
@@ -862,14 +877,14 @@ cfINTERFACEstart ()
          tput cup 7 0; echo "|=============================|==============================================================|"
          tput cup 8 0; echo "|  Calculating size of folder :                                                              |"
          tput cup 9 0; echo "|-----------------------------|--------------------------------------------------------------|"
-        tput cup 10 0; echo ""
+        tput cup 10 0; echo "|                             :                                                              |"
         tput cup 11 0; echo "|-----------------------------|--------------------------------------------------------------|"
         tput cup 12 0; echo "|                             |                                                              |"
         tput cup 13 0; echo "|-----------------------------|--------------------------------------------------------------|"
         tput cup 14 0; echo "|                             |                                                              |"
         tput cup 15 0; echo "|-----------------------------|--------------------------------------------------------------|"
         tput cup 16 0; echo "|                             |                                                              |"
-        tput cup 17 0; echo "|-----------------------------|--------------------------------------------------------------|"    
+        tput cup 17 0; echo -n "|-----------------------------|--------------------------------------------------------------|"    
     }
         
 cfINTERFACErun ()
@@ -902,7 +917,7 @@ cfINTERFACErun ()
         tput cup 14 0; echo "|           Transferring from :                                                              |"
         tput cup 15 0; echo "|-----------------------------|--------------------------------------------------------------|"
         tput cup 16 0; echo "|             Transferring to :                                                              |"
-        tput cup 17 0; echo "|-----------------------------|--------------------------------------------------------------|"
+        tput cup 17 0; echo -n "|-----------------------------|--------------------------------------------------------------|"
     }
     
 cfINTERFACEclose ()
@@ -924,7 +939,7 @@ cfINTERFACEclose ()
          tput cup 7 0; tput el; echo "| Log Files located within directory:    |   Debug Log : debug.log              |"
          tput cup 8 0; tput el; echo "|      username/Library/Logs/Carbon/     | Message Log : message.log            |"
          tput cup 9 0; tput el; echo "|                                        |   Error Log : error.log              |"
-        tput cup 10 0; tput el; echo "|========================================|======================================|"  
+        tput cup 10 0; tput el; echo -n "|========================================|======================================|"  
         tput cup 11 0; tput el
         tput cup 12 0; tput el
         tput cup 13 0; tput el
@@ -996,13 +1011,13 @@ done
  cfINTERFACErun
  #Calculate ETC
  transTimeRaw=$(echo "scale=0; (($sizeRAW*512)/1000000)*$typef" | bc) 
- cfTIME.date $transTimeRaw
- cfTIME.time $transTimeRaw
- tput cup 5 2; echo $time && etaO=$time
- tput cup 5 91; echo $transrateL $transrateH | awk '{printf "%d - %d", $1 $2}'
- tput cup 5 68; echo $sizeHUMAN"" | awk '{printf "%.8sB", $1}'
- tput cup 14 32; echo "$source" | awk '{printf "%-.66s", $1}'
- tput cup 16 32; echo "$target" | awk '{printf "%-.66s", $1}'
+ cfTIME.date "$transTimeRaw"
+ cfTIME.time "$transTimeRaw"
+ tput cup 5 2; echo "$time" && etaO="$time"
+ tput cup 5 91; echo "$transrateL" "$transrateH" | awk '{printf "%d - %d", $1 $2}'
+ tput cup 5 68; echo "$sizeHUMAN" | awk '{printf "%.8sB", $1}'
+ tput cup 14 32; echo "$source" | awk '{printf "%-.66s", $0}'
+ tput cup 16 32; echo "$target" | awk '{printf "%-.66s", $0}'
 
 ######################################### DITTO PREFLIGHT ##########################################
 
