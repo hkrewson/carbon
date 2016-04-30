@@ -6,7 +6,7 @@
 #   vNEXTSAVE
 #   - Use command "cp -Rp" either in place of "ditto -V" or set up a method 
 #       of determining support OS portability (Linux/Unix/OSX)
-#   v1890rc1
+#   v1889r5
 #   - Interface tweeks. echo prints a newline character, did not take this into 
 #       account when setting up the interface. Caused all printed information
 #       to be one line below expectations.
@@ -441,7 +441,7 @@
 ############################## HEADER ENDS #####################################
 
 ############################ VERSION VARIABLES #################################
-version="1.8.8.9r4"  
+version="1.8.8.9r5"  
 build="0429"
 YEAR="2016"
 cfbname=$(basename -s .sh "$0")
@@ -849,7 +849,7 @@ cfINTERFACEinit ()
         
         #http://apple.stackexchange.com/questions/33736/can-a-terminal-window-be-resized-with-a-terminal-command
         #Set width of window to 80 columns, height to 18 rows
-        printf '\e[8;18;94t'    
+        printf '\e[8;20;94t'    
         #Move the window to the top left corner of the display.
         printf '\e[3;0;0t'
         width=$(tput cols)
