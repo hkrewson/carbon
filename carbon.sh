@@ -1039,7 +1039,7 @@ for i in "${SOURCELIST[@]}"
 	do
 	    #copy stage. Write current directory to log, initiate copy.
 		cfLOGGER.file -l "Copying $i"
-		sudo ditto -V "$source$i" "$target$i" 2>>$clog &
+		sudo ditto -V "./$i" "$target$i" 2>>$clog &
 		cfLOGGER.file -l "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
 		COPIED+=($i)
         cfLOGGER.ditto $count
