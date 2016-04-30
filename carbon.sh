@@ -14,6 +14,7 @@
 #   - Added the size calculated to cfINTERFACEstart
 #   - Set script to pause after printing the above to allow time to read.
 #   - cfINTERFACErun should now display transferring from and to properly.
+#   - ditto cannot get real path for source. $source$i
 #   v1889r4
 #   - At some point sizeRAW was being calculated based upon the current location.
 #       Instead of changing the directory to the source location, cfDISKSPACE
@@ -598,7 +599,7 @@ cfLOGGER.ditto()
         	echo
         else
             #Create a list of errors for this section.
-            ERRORLIST=($(cat carbon.copy.log | sed -n "/>>>\ Copying\ ${SOURCELIST[$((COUNT-1))]}/ ,/>>>\ Copying\ ${SOURCELIST[$COUNT]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left)'))    
+            ERRORLIST=($(cat carbon.copy.log | sed -n "/>>>\ Copying\ ${SOURCELIST[$((COUNT-1))]}/ ,/>>>\ Copying\ ${SOURCELIST[$COUNT]}/"p | egrep -e '(No such file|error\\b|Read-only|Device not configured|No space left|real path for source)'))    
             
             #Dump ERRORSLIST into an array
             for i in "${ERRORLIST[@]}"
@@ -609,6 +610,7 @@ cfLOGGER.ditto()
         	        *"Device not configured"*)cfLOGGER.file -l "$i"; aERROR+=("$i");;
         	        *"No space left"*)cfLOGGER.file -l "$i"; aERROR+=("$i");;
         	        *"No such file"*)aFILE+=("$i");;
+        	        *"real path for source"*)cfLOGGER.file -l "$i"; aERROR+=("$i");;
                 esac
                 done
         
@@ -1037,7 +1039,7 @@ for i in "${SOURCELIST[@]}"
 	do
 	    #copy stage. Write current directory to log, initiate copy.
 		cfLOGGER.file -l "Copying $i"
-		sudo ditto -V "$i" "$target$i" 2>>$clog &
+		sudo ditto -V "$source$i" "$target$i" 2>>$clog &
 		cfLOGGER.file -l "[ditto]: copy $i return status is $?"      # Returns exit status of ditto.
 		COPIED+=($i)
         cfLOGGER.ditto $count
