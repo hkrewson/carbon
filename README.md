@@ -28,6 +28,9 @@ uses this and some data derived from real world data transfer tests to determine
 completion. Since my original use scenario was to copy data from corrupted drives/folders, these time estimates are
 longer than would be expected from a drive in good health.
 
+Note that the time estimates are NOT accurate, nor were they necessarily intended to be. It was intended to give a 
+very rough idea of what to expect.
+
 Copying data from the internal drive to an external USB drive named "Backup":
 
      carbon -u /Volumes/Macintosh\ HD/ /Volumes/Backup/
